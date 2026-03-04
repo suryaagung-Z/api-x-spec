@@ -31,7 +31,20 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- Clean Architecture: Confirm the proposed layering (domain, application,
+  interfaces/adapters, infrastructure) and dependency direction are defined.
+- Dependency Injection: Decide how DI will be implemented (framework features
+  or DI container) and where the composition root lives.
+- Validation: Describe how all external endpoints will validate inputs
+  (request models/DTOs, schema libraries, annotations, middleware, etc.).
+- Error Contract: Specify the JSON error envelope and how endpoint/framework
+  code will map failures to canonical error codes.
+- Tooling: List primary libraries for HTTP, DI, persistence/ORM, migrations,
+  and testing, preferring mature and widely used options.
+- Migrations: Define the database migration tool and how migrations will be
+  created, reviewed, and applied across environments.
+- Testing & Coverage: Outline the test strategy (unit, integration, contract
+  where applicable) and how 100% coverage will be achieved and enforced in CI.
 
 ## Project Structure
 
