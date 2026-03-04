@@ -1,6 +1,6 @@
 # Feature Specification: Authentication with JWT and Role-Based Access
 
-**Feature Branch**: `[001-jwt-role-auth]`  
+**Feature Branch**: `[001-authentication]`  
 **Created**: 2026-03-04  
 **Status**: Draft  
 **Input**: User description: "Authentication system dengan JWT dan role based access"

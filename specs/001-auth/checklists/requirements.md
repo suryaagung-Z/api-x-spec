@@ -2,7 +2,7 @@
 
 **Purpose**: Validate specification completeness and quality before proceeding to planning  
 **Created**: 2026-03-04  
-**Feature**: [specs/001-jwt-role-auth/spec.md](../spec.md)
+**Feature**: [specs/001-authentication/spec.md](../spec.md)
 
 ## Content Quality
 
