@@ -1,18 +1,18 @@
 #!/usr/bin/env pwsh
 
-# Consolidated prerequisite checking script (PowerShell)
+# Script pengecekan prerequisite terpusat (PowerShell)
 #
-# This script provides unified prerequisite checking for Spec-Driven Development workflow.
-# It replaces the functionality previously spread across multiple scripts.
+# Script ini menyediakan pengecekan prerequisite terpadu untuk workflow Spec-Driven Development.
+# Script ini menggantikan fungsionalitas yang sebelumnya tersebar di beberapa script.
 #
-# Usage: ./check-prerequisites.ps1 [OPTIONS]
+# Penggunaan: ./check-prerequisites.ps1 [OPTIONS]
 #
-# OPTIONS:
-#   -Json               Output in JSON format
-#   -RequireTasks       Require tasks.md to exist (for implementation phase)
-#   -IncludeTasks       Include tasks.md in AVAILABLE_DOCS list
-#   -PathsOnly          Only output path variables (no validation)
-#   -Help, -h           Show help message
+# OPSI:
+#   -Json               Output dalam format JSON
+#   -RequireTasks       Mengharuskan tasks.md ada (untuk fase implementasi)
+#   -IncludeTasks       Menyertakan tasks.md dalam daftar AVAILABLE_DOCS
+#   -PathsOnly          Hanya menampilkan variabel path (tanpa validasi)
+#   -Help, -h           Menampilkan pesan bantuan
 
 [CmdletBinding()]
 param(
@@ -25,28 +25,28 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# Show help if requested
+# Tampilkan bantuan jika diminta
 if ($Help) {
     Write-Output @"
 Usage: check-prerequisites.ps1 [OPTIONS]
 
-Consolidated prerequisite checking for Spec-Driven Development workflow.
+Pengecekan prerequisite terpusat untuk workflow Spec-Driven Development.
 
 OPTIONS:
-  -Json               Output in JSON format
-  -RequireTasks       Require tasks.md to exist (for implementation phase)
-  -IncludeTasks       Include tasks.md in AVAILABLE_DOCS list
-  -PathsOnly          Only output path variables (no prerequisite validation)
-  -Help, -h           Show this help message
+    -Json               Output dalam format JSON
+    -RequireTasks       Mengharuskan tasks.md ada (untuk fase implementasi)
+    -IncludeTasks       Menyertakan tasks.md dalam daftar AVAILABLE_DOCS
+    -PathsOnly          Hanya menampilkan variabel path (tanpa validasi prerequisite)
+    -Help, -h           Menampilkan pesan bantuan ini
 
-EXAMPLES:
-  # Check task prerequisites (plan.md required)
+CONTOH:
+    # Cek prerequisite untuk task (plan.md wajib ada)
   .\check-prerequisites.ps1 -Json
   
-  # Check implementation prerequisites (plan.md + tasks.md required)
+    # Cek prerequisite implementasi (plan.md + tasks.md wajib ada)
   .\check-prerequisites.ps1 -Json -RequireTasks -IncludeTasks
   
-  # Get feature paths only (no validation)
+    # Hanya mendapatkan path feature (tanpa validasi)
   .\check-prerequisites.ps1 -PathsOnly
 
 "@
@@ -56,14 +56,14 @@ EXAMPLES:
 # Source common functions
 . "$PSScriptRoot/common.ps1"
 
-# Get feature paths and validate branch
+# Ambil path feature dan validasi branch
 $paths = Get-FeaturePathsEnv
 
 if (-not (Test-FeatureBranch -Branch $paths.CURRENT_BRANCH -HasGit:$paths.HAS_GIT)) { 
     exit 1 
 }
 
-# If paths-only mode, output paths and exit (support combined -Json -PathsOnly)
+# Jika mode paths-only, tampilkan path dan keluar (mendukung kombinasi -Json -PathsOnly)
 if ($PathsOnly) {
     if ($Json) {
         [PSCustomObject]@{
@@ -85,58 +85,58 @@ if ($PathsOnly) {
     exit 0
 }
 
-# Validate required directories and files
+# Validasi direktori dan file yang dibutuhkan
 if (-not (Test-Path $paths.FEATURE_DIR -PathType Container)) {
-    Write-Output "ERROR: Feature directory not found: $($paths.FEATURE_DIR)"
-    Write-Output "Run /speckit.specify first to create the feature structure."
+    Write-Output "ERROR: Direktori fitur tidak ditemukan: $($paths.FEATURE_DIR)"
+    Write-Output "Jalankan /speckit.specify terlebih dahulu untuk membuat struktur fitur."
     exit 1
 }
 
 if (-not (Test-Path $paths.IMPL_PLAN -PathType Leaf)) {
-    Write-Output "ERROR: plan.md not found in $($paths.FEATURE_DIR)"
-    Write-Output "Run /speckit.plan first to create the implementation plan."
+    Write-Output "ERROR: plan.md tidak ditemukan di $($paths.FEATURE_DIR)"
+    Write-Output "Jalankan /speckit.plan terlebih dahulu untuk membuat rencana implementasi."
     exit 1
 }
 
 # Check for tasks.md if required
 if ($RequireTasks -and -not (Test-Path $paths.TASKS -PathType Leaf)) {
-    Write-Output "ERROR: tasks.md not found in $($paths.FEATURE_DIR)"
-    Write-Output "Run /speckit.tasks first to create the task list."
+    Write-Output "ERROR: tasks.md tidak ditemukan di $($paths.FEATURE_DIR)"
+    Write-Output "Jalankan /speckit.tasks terlebih dahulu untuk membuat daftar task."
     exit 1
 }
 
-# Build list of available documents
+# Bangun daftar dokumen yang tersedia
 $docs = @()
 
-# Always check these optional docs
+# Selalu cek dokumen opsional ini
 if (Test-Path $paths.RESEARCH) { $docs += 'research.md' }
 if (Test-Path $paths.DATA_MODEL) { $docs += 'data-model.md' }
 
-# Check contracts directory (only if it exists and has files)
+# Cek direktori contracts (hanya jika ada dan berisi file)
 if ((Test-Path $paths.CONTRACTS_DIR) -and (Get-ChildItem -Path $paths.CONTRACTS_DIR -ErrorAction SilentlyContinue | Select-Object -First 1)) { 
     $docs += 'contracts/' 
 }
 
 if (Test-Path $paths.QUICKSTART) { $docs += 'quickstart.md' }
 
-# Include tasks.md if requested and it exists
+# Sertakan tasks.md jika diminta dan file-nya ada
 if ($IncludeTasks -and (Test-Path $paths.TASKS)) { 
     $docs += 'tasks.md' 
 }
 
 # Output results
 if ($Json) {
-    # JSON output
+    # Output JSON
     [PSCustomObject]@{ 
         FEATURE_DIR = $paths.FEATURE_DIR
         AVAILABLE_DOCS = $docs 
     } | ConvertTo-Json -Compress
 } else {
-    # Text output
+    # Output teks
     Write-Output "FEATURE_DIR:$($paths.FEATURE_DIR)"
     Write-Output "AVAILABLE_DOCS:"
     
-    # Show status of each potential document
+    # Tampilkan status setiap dokumen potensial
     Test-FileExists -Path $paths.RESEARCH -Description 'research.md' | Out-Null
     Test-FileExists -Path $paths.DATA_MODEL -Description 'data-model.md' | Out-Null
     Test-DirHasFiles -Path $paths.CONTRACTS_DIR -Description 'contracts/' | Out-Null

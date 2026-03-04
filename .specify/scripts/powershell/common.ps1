@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# Common PowerShell functions analogous to common.sh
+# Fungsi PowerShell umum yang analog dengan common.sh
 
 function Get-RepoRoot {
     try {
@@ -16,12 +16,12 @@ function Get-RepoRoot {
 }
 
 function Get-CurrentBranch {
-    # First check if SPECIFY_FEATURE environment variable is set
+    # Pertama cek apakah variabel environment SPECIFY_FEATURE sudah di-set
     if ($env:SPECIFY_FEATURE) {
         return $env:SPECIFY_FEATURE
     }
     
-    # Then check git if available
+    # Lalu cek git jika tersedia
     try {
         $result = git rev-parse --abbrev-ref HEAD 2>$null
         if ($LASTEXITCODE -eq 0) {
@@ -31,7 +31,7 @@ function Get-CurrentBranch {
         # Git command failed
     }
     
-    # For non-git repos, try to find the latest feature directory
+    # Untuk repo tanpa git, coba temukan direktori feature terbaru
     $repoRoot = Get-RepoRoot
     $specsDir = Join-Path $repoRoot "specs"
     
@@ -54,7 +54,7 @@ function Get-CurrentBranch {
         }
     }
     
-    # Final fallback
+    # Fallback terakhir
     return "main"
 }
 
@@ -73,15 +73,15 @@ function Test-FeatureBranch {
         [bool]$HasGit = $true
     )
     
-    # For non-git repos, we can't enforce branch naming but still provide output
+    # Untuk repo tanpa git, kita tidak bisa memaksa penamaan branch tetapi tetap memberi output
     if (-not $HasGit) {
-        Write-Warning "[specify] Warning: Git repository not detected; skipped branch validation"
+        Write-Warning "[specify] Peringatan: Repository Git tidak terdeteksi; validasi branch dilewati"
         return $true
     }
     
     if ($Branch -notmatch '^[0-9]{3}-') {
-        Write-Output "ERROR: Not on a feature branch. Current branch: $Branch"
-        Write-Output "Feature branches should be named like: 001-feature-name"
+        Write-Output "ERROR: Bukan berada di feature branch. Branch saat ini: $Branch"
+        Write-Output "Feature branch sebaiknya dinamai seperti: 001-nama-fitur"
         return $false
     }
     return $true

@@ -1,216 +1,230 @@
 <!--
-Sync Impact Report
+Laporan Dampak Sinkronisasi
 
-- Version change: none → 1.0.0 (initial ratification)
-- Modified principles: (new) I. Spec-First API Design; (new) II. Independently Testable User Stories; (new) III. Plan-Driven Implementation; (new) IV. Text-First, CLI & Git Native; (new) V. Simplicity, Traceability & Review
-- Added sections: Core Principles; Documentation & Template Constraints; Development Workflow & Quality Gates; Governance
-- Removed sections: none
-- Templates status:
-	- .specify/templates/plan-template.md: ✅ updated (Constitution Check gates + complexity tracking link)
-	- .specify/templates/spec-template.md: ✅ aligned (mandatory sections already comply)
-	- .specify/templates/tasks-template.md: ✅ aligned (user-story grouping and independence)
-	- .specify/templates/checklist-template.md: ✅ aligned (no constitution-specific rules)
-	- .specify/templates/agent-file-template.md: ✅ aligned (runtime guidance only)
-- Deferred TODOs: none
+- Perubahan versi: none → 1.0.0 (ratifikasi awal)
+- Prinsip yang diubah: (baru) I. Desain API Berbasis Spesifikasi; (baru) II. User Story yang Dapat Diuji Secara Mandiri; (baru) III. Implementasi Berbasis Rencana; (baru) IV. Teks-First, CLI & Git Native; (baru) V. Kesederhanaan, Keterlacakan & Review
+- Bagian yang ditambahkan: Prinsip Inti; Batasan Dokumentasi & Template; Alur Kerja Pengembangan & Quality Gate; Tata Kelola
+- Bagian yang dihapus: none
+- Status template:
+	- .specify/templates/plan-template.md: ✅ diperbarui (gate Constitution Check + tautan pelacakan kompleksitas)
+	- .specify/templates/spec-template.md: ✅ selaras (bagian wajib sudah sesuai)
+	- .specify/templates/tasks-template.md: ✅ selaras (pengelompokan dan kemandirian user story)
+	- .specify/templates/checklist-template.md: ✅ selaras (tidak ada aturan khusus konstitusi)
+	- .specify/templates/agent-file-template.md: ✅ selaras (hanya panduan runtime)
+- TODO tertunda: none
 -->
 
-# API-X Spec Constitution
+# Konstitusi API-X Spec
 
-## Core Principles
+## Prinsip Inti
 
-### I. Spec-First API Design (NON-NEGOTIABLE)
+### I. Desain API Berbasis Spesifikasi (TIDAK DAPAT DITAWAR)
 
-API-X work MUST start from a written feature specification in
-`/specs/[###-feature-name]/spec.md`. No implementation work is considered valid
-for this project unless it can be traced back to an approved spec and
-implementation plan.
+Pekerjaan API-X HARUS dimulai dari spesifikasi fitur tertulis di
+`/specs/[###-feature-name]/spec.md`. Tidak ada pekerjaan implementasi yang
+dianggap valid untuk proyek ini kecuali dapat ditelusuri kembali ke spesifikasi
+dan rencana implementasi yang disetujui.
 
-- Every behavior-affecting change MUST originate from a feature spec stored in
-	the repository.
-- Specs MUST use the standard sections from the feature specification template:
-	User Scenarios & Testing, Requirements, and Success Criteria.
-- A spec MUST define at least one prioritized user story (P1) that delivers a
-	viable, independently testable slice of value.
-- A spec is not "ready" until success criteria are measurable and
-	technology-agnostic.
+- Setiap perubahan yang memengaruhi perilaku HARUS berawal dari spesifikasi
+	fitur yang tersimpan di repository.
+- Spesifikasi HARUS menggunakan bagian standar dari template spesifikasi fitur:
+	User Scenarios & Testing, Requirements, dan Success Criteria.
+- Spesifikasi HARUS mendefinisikan setidaknya satu user story prioritas (P1)
+	yang memberikan irisan nilai yang layak dan dapat diuji secara mandiri.
+- Spesifikasi belum dianggap "siap" sampai kriteria keberhasilan terukur dan
+	agnostik terhadap teknologi.
 
-Rationale: This keeps API-X design intentional, reviewable, and auditable, and
-prevents ad-hoc work that cannot be traced to user-facing outcomes.
+Alasan: Ini menjaga desain API-X tetap berniat, dapat direview, dan dapat diaudit,
+serta mencegah pekerjaan ad-hoc yang tidak dapat ditelusuri ke hasil yang
+dihadapi pengguna.
 
-### II. Independently Testable User Stories
+### II. User Story yang Dapat Diuji Secara Mandiri
 
-User stories are the primary planning unit and MUST be independently testable
-and deliverable.
+User story adalah unit perencanaan utama dan HARUS dapat diuji serta dikirimkan
+secara mandiri.
 
-- Each user story in spec.md MUST:
-	- Be prioritized (P1, P2, P3, …).
-	- Describe a complete user journey that can be validated in isolation.
-	- Include at least one explicit "Independent Test" description.
-- Tasks generated for a feature MUST be grouped by user story so each story can
-	be implemented and tested without depending on the completion of other
-	stories, except for clearly identified shared foundations.
-- It MUST be possible to demonstrate each completed P1/P2 story as a coherent
-	MVP increment that does not assume unfinished stories.
+- Setiap user story di spec.md HARUS:
+	- Diprioritaskan (P1, P2, P3, …).
+	- Mendeskripsikan perjalanan pengguna yang lengkap dan dapat divalidasi
+		secara terpisah.
+	- Menyertakan setidaknya satu deskripsi "Independent Test" eksplisit.
+- Task yang dihasilkan untuk sebuah fitur HARUS dikelompokkan per user story
+	sehingga setiap story dapat diimplementasikan dan diuji tanpa bergantung pada
+	selesainya story lain, kecuali fondasi bersama yang dijelaskan dengan jelas.
+- Harus memungkinkan untuk mendemonstrasikan setiap story P1/P2 yang selesai
+	sebagai inkremen MVP yang koheren tanpa mengasumsikan story lain yang belum
+	selesai.
 
-Rationale: Independent stories enable incremental delivery, clearer tradeoffs,
-and easier validation of behavior against the spec.
+Alasan: Story yang mandiri memungkinkan delivery bertahap, trade-off yang lebih
+jelas, dan lebih mudah memvalidasi perilaku terhadap spesifikasi.
 
-### III. Plan-Driven Implementation
+### III. Implementasi Berbasis Rencana
 
-Implementation MUST follow an explicit plan (plan.md) derived from the spec.
+Implementasi HARUS mengikuti rencana eksplisit (plan.md) yang diturunkan dari
+spesifikasi.
 
-- Each feature branch MUST have an implementation plan at
-	`/specs/[###-feature-name]/plan.md` before any non-spike implementation work
-	proceeds.
-- The plan MUST summarize the feature in the project context, document the
-	chosen structure (single-project, web app, mobile, etc.), and identify
-	foundational work vs. user-story-specific work.
-- The "Constitution Check" section in plan.md MUST be completed and kept up to
-	date; it acts as a blocking gate before Phase 0 research and MUST be
-	re-validated after Phase 1 design.
-- Any intentional deviations or added complexity (e.g., extra layers,
-	additional projects, non-trivial patterns) MUST be documented in the
-	"Complexity Tracking" table in plan.md with clear justification.
+- Setiap feature branch HARUS memiliki rencana implementasi di
+	`/specs/[###-feature-name]/plan.md` sebelum pekerjaan implementasi non-spike
+	dimulai.
+- Rencana HARUS merangkum fitur dalam konteks proyek, mendokumentasikan
+	struktur yang dipilih (single-project, web app, mobile, dll.), dan
+	mengidentifikasi pekerjaan fondasi vs. pekerjaan spesifik user story.
+- Bagian "Constitution Check" di plan.md HARUS diisi dan dijaga tetap mutakhir;
+	bagian ini bertindak sebagai gate pemblokir sebelum riset Fase 0 dan HARUS
+	di-validasi ulang setelah desain Fase 1.
+- Setiap deviasi atau kompleksitas tambahan yang disengaja (misalnya layer
+	tambahan, project tambahan, pola non-trivial) HARUS didokumentasikan dalam
+	tabel "Complexity Tracking" di plan.md dengan justifikasi yang jelas.
 
-Rationale: Plans make implementation predictable, reviewable, and aligned with
-the spec and this constitution.
+Alasan: Rencana membuat implementasi menjadi lebih terprediksi, dapat
+direview, dan selaras dengan spesifikasi serta konstitusi ini.
 
-### IV. Text-First, CLI & Git Native
+### IV. Teks-First, CLI & Git Native
 
-The project is optimized for text-based workflows, CLI tools, and Git.
+Proyek ini dioptimalkan untuk workflow berbasis teks, tool CLI, dan Git.
 
-- All durable project knowledge (specs, plans, tasks, checklists, guidelines)
-	MUST live in version-controlled text/Markdown files in this repository.
-- Automation (e.g., `/speckit.*` commands) MUST communicate through text I/O:
-	arguments/stdin in, Markdown or structured text out.
-- No required project state may exist only in external tools, UIs, or agent
-	memory; if it matters, it MUST be written back into tracked files.
-- Auto-generated files MUST remain human-readable and safe to review in normal
-	Git workflows.
+- Semua pengetahuan proyek yang bersifat permanen (spec, plan, tasks,
+	checklist, guideline) HARUS disimpan dalam file teks/Markdown yang
+	terversi di repository ini.
+- Otomasi (misalnya perintah `/speckit.*`) HARUS berkomunikasi melalui I/O teks:
+	argumen/stdin sebagai input, Markdown atau teks terstruktur sebagai output.
+- Tidak boleh ada state proyek penting yang hanya ada di tool eksternal, UI,
+	atau memori agen; jika penting, HARUS ditulis kembali ke file yang
+	terlacak.
+- File yang dihasilkan otomatis HARUS tetap mudah dibaca manusia dan aman
+	untuk direview dalam workflow Git biasa.
 
-Rationale: Text- and Git-native workflows keep the system transparent,
-diff-friendly, and easy to audit over time.
+Alasan: Workflow berbasis teks dan Git menjaga sistem tetap transparan,
+mudah di-diff, dan mudah diaudit dari waktu ke waktu.
 
-### V. Simplicity, Traceability & Review
+### V. Kesederhanaan, Keterlacakan & Review
 
-The simplest approach that satisfies the spec and this constitution MUST be
-preferred, and all work MUST be traceable from code back to spec.
+Pendekatan paling sederhana yang memenuhi spesifikasi dan konstitusi ini HARUS
+diprioritaskan, dan semua pekerjaan HARUS dapat ditelusuri dari kode kembali ke
+spesifikasi.
 
-- Features MUST be traceable via their branch name, spec.md, plan.md, and
-	tasks.md; PRs MUST link to the relevant spec folder.
-- Templates and generated documents MUST avoid unnecessary abstraction; only
-	structure that serves clarity, testing, or delivery is allowed.
-- Any increase in structural or process complexity (extra layers, cross-cutting
-	frameworks, non-standard flows) MUST:
-	- Be recorded in the "Complexity Tracking" table of plan.md.
-	- Include a clear rationale and a rejected simpler alternative.
-- Reviewers MUST reject changes that materially increase complexity without a
-	documented and credible justification.
+- Fitur HARUS dapat ditelusuri melalui nama branch, spec.md, plan.md, dan
+	tasks.md; PR HARUS menautkan ke folder spesifikasi yang relevan.
+- Template dan dokumen yang dihasilkan HARUS menghindari abstraksi yang tidak
+	diperlukan; hanya struktur yang membantu kejelasan, pengujian, atau delivery
+	yang diperbolehkan.
+- Setiap peningkatan kompleksitas struktural atau proses (layer tambahan,
+	framework lintas-lapisan, alur non-standar) HARUS:
+	- Dicatat di tabel "Complexity Tracking" pada plan.md.
+	- Menyertakan alasan yang jelas dan alternatif yang lebih sederhana yang
+		ditolak.
+- Reviewer HARUS menolak perubahan yang secara material meningkatkan
+	kompleksitas tanpa justifikasi terdokumentasi yang kredibel.
 
-Rationale: Enforcing simplicity and traceability keeps the project maintainable
-and makes regressions easier to diagnose.
+Alasan: Menegakkan kesederhanaan dan keterlacakan menjaga proyek tetap mudah
+dipelihara dan mempermudah diagnosis regresi.
 
-## Documentation & Template Constraints
+## Batasan Dokumentasi & Template
 
-This section constrains how documentation templates in `.specify/templates/`
-are used and extended.
+Bagian ini membatasi bagaimana template dokumentasi di `.specify/templates/`
+digunakan dan dikembangkan.
 
-- Feature documentation for a branch MUST exist under
-	`/specs/[###-feature-name]/` using at least:
-	- spec.md (feature specification),
-	- plan.md (implementation plan),
-	- tasks.md (implementation tasks),
-	- optional checklist files generated via `/speckit.checklist`.
-- Mandatory sections in spec.md (User Scenarios & Testing, Requirements,
-	Success Criteria) MUST be filled with concrete content before the feature is
-	considered ready for implementation.
-- Plan files generated from the plan template MUST retain the
-	Constitution Check and Complexity Tracking sections and update them instead
-	of deleting them.
-- Tasks files generated from the tasks template MUST organize work by user
-	story (US1, US2, …) and clearly mark any foundational work that blocks user
-	stories.
-- Sample content in templates (marked as examples or illustrative only) MUST
-	NOT survive into committed feature documentation.
+- Dokumentasi fitur untuk sebuah branch HARUS berada di bawah
+	`/specs/[###-feature-name]/` dengan minimal:
+	- spec.md (spesifikasi fitur),
+	- plan.md (rencana implementasi),
+	- tasks.md (task implementasi),
+	- file checklist opsional yang dibuat lewat `/speckit.checklist`.
+- Bagian-bagian wajib di spec.md (User Scenarios & Testing, Requirements,
+	Success Criteria) HARUS diisi dengan konten konkret sebelum fitur dianggap
+	siap untuk diimplementasikan.
+- File plan yang dihasilkan dari template plan HARUS mempertahankan bagian
+	Constitution Check dan Complexity Tracking lalu memperbaruinya, bukan
+	menghapusnya.
+- File tasks yang dihasilkan dari template tasks HARUS mengorganisasi
+	pekerjaan berdasarkan user story (US1, US2, …) dan dengan jelas menandai
+	pekerjaan fondasi yang memblokir user story.
+- Konten contoh di template (yang ditandai sebagai contoh atau ilustratif
+	saja) TIDAK BOLEH ikut masuk ke dokumentasi fitur yang dikomit.
 
-Rationale: These constraints keep all feature artifacts consistent, parseable,
-and aligned with the principles above.
+Alasan: Batasan ini menjaga semua artefak fitur tetap konsisten, dapat
+dianalisis, dan selaras dengan prinsip di atas.
 
-## Development Workflow & Quality Gates
+## Alur Kerja Pengembangan & Quality Gate
 
-The end-to-end workflow for a feature MUST respect the following gates.
+Workflow ujung-ke-ujung untuk sebuah fitur HARUS mengikuti gate berikut.
 
 1. **Spec Gate**
-	 - A new feature starts with spec.md drafted using the spec template.
-	 - At least one P1 story with an independent test description MUST be
-		 defined.
-	 - Success criteria MUST be measurable and focused on user or system
-		 outcomes, not implementation details.
+	- Fitur baru dimulai dengan spec.md yang disusun menggunakan template spec.
+	- Setidaknya satu story P1 dengan deskripsi independent test HARUS
+		didefinisikan.
+	- Kriteria keberhasilan HARUS terukur dan berfokus pada hasil pengguna atau
+		sistem, bukan detail implementasi.
 
 2. **Plan Gate**
-	 - An implementation plan (plan.md) MUST be created from the plan template.
-	 - The Constitution Check section MUST be completed before Phase 0 research
-		 proceeds.
-	 - Chosen project structure and foundations MUST be documented.
+	- Rencana implementasi (plan.md) HARUS dibuat dari template plan.
+	- Bagian Constitution Check HARUS diisi sebelum riset Fase 0 berjalan.
+	- Struktur proyek dan fondasi yang dipilih HARUS didokumentasikan.
 
 3. **Tasks Gate**
-	 - Tasks (tasks.md) MUST be generated or written using the tasks template.
-	 - Tasks MUST be grouped by user story and reflect the independence of
-		 stories established in the spec.
-	 - Any requested tests MUST be present as explicit tasks and written before
-		 implementation work claiming to satisfy them.
+	- Task (tasks.md) HARUS dibuat atau ditulis menggunakan template tasks.
+	- Task HARUS dikelompokkan berdasarkan user story dan mencerminkan
+		kemandirian story yang ditetapkan di spec.
+	- Setiap pengujian yang diminta HARUS tercantum sebagai task eksplisit dan
+		ditulis sebelum pekerjaan implementasi yang mengklaim memenuhi pengujian
+		tersebut.
 
 4. **Review Gate**
-	 - PRs that change specs, plans, or tasks MUST be reviewed for constitution
-		 compliance.
-	 - Review MUST verify: traceability (spec → plan → tasks → implementation),
-		 adherence to simplicity, and documentation of any complexity in
-		 Complexity Tracking.
+	- PR yang mengubah spec, plan, atau tasks HARUS direview untuk
+		kepatuhan terhadap konstitusi.
+	- Review HARUS memverifikasi: keterlacakan (spec → plan → tasks →
+		implementasi), kepatuhan terhadap prinsip kesederhanaan, dan dokumentasi
+		setiap kompleksitas di Complexity Tracking.
 
 5. **Validation Gate**
-	 - Before a feature is considered done, the documented Independent Tests for
-		 each completed story and the Success Criteria MUST be verifiably
-		 satisfied.
+	- Sebelum fitur dianggap selesai, Independent Tests yang didokumentasikan
+		untuk setiap story yang selesai dan Success Criteria HARUS benar-benar
+		terpenuhi.
 
-Rationale: Explicit gates prevent partially specified or untraceable work from
-entering the system and enforce consistent quality.
+Alasan: Gate eksplisit mencegah pekerjaan yang belum terspesifikasi dengan
+baik atau tidak dapat ditelusuri masuk ke sistem dan menegakkan kualitas yang
+konsisten.
 
-## Governance
+## Tata Kelola
 
-This constitution governs how specifications, plans, tasks, and related
-artifacts are created and maintained for API-X.
+Konstitusi ini mengatur bagaimana spesifikasi, rencana, task, dan artefak
+terkait dibuat dan dikelola untuk API-X.
 
-- **Authority**
-	- This constitution supersedes ad-hoc practices for how specs, plans, and
-		tasks are structured in this repository.
-	- All `/speckit.*` commands and any development guidelines derived from
-		them MUST respect these principles.
+- **Otoritas**
+	- Konstitusi ini menggantikan praktik ad-hoc terkait cara menyusun spec,
+		plan, dan tasks di repository ini.
+	- Semua perintah `/speckit.*` dan panduan pengembangan apa pun yang
+		diturunkan darinya HARUS menghormati prinsip-prinsip ini.
 
-- **Amendments**
-	- Amendments MUST be proposed via pull request that:
-		- Edits this constitution file.
-		- Updates any affected templates in `.specify/templates/`.
-		- Includes a short rationale and impact summary in the PR description.
-	- Versioning follows semantic versioning:
-		- MAJOR: Backward-incompatible principle changes or removals.
-		- MINOR: New principles or material expansions of guidance.
-		- PATCH: Clarifications, wording, or non-semantic refinements.
-	- The Sync Impact Report at the top of this file MUST be updated with each
-		amendment to reflect the version change and affected sections.
+- **Amandemen**
+	- Amandemen HARUS diajukan melalui pull request yang:
+		- Mengedit file konstitusi ini.
+		- Memperbarui template yang terdampak di `.specify/templates/`.
+		- Menyertakan ringkasan singkat mengenai alasan dan dampaknya di deskripsi
+			PR.
+	- Versi mengikuti semantic versioning:
+		- MAJOR: Perubahan prinsip yang tidak kompatibel ke belakang atau
+			penghapusan.
+		- MINOR: Prinsip baru atau perluasan panduan yang material.
+		- PATCH: Klarifikasi, perbaikan bahasa, atau penyempurnaan non-semantik.
+	- Laporan Dampak Sinkronisasi di bagian atas file ini HARUS diperbarui pada
+		setiap amandemen untuk mencerminkan perubahan versi dan bagian yang
+		terpengaruh.
 
-- **Compliance & Review**
-	- All PRs touching spec, plan, tasks, or checklist files MUST be evaluated
-		against this constitution.
-	- Placeholders in committed feature docs MUST either be resolved or clearly
-		marked as `NEEDS CLARIFICATION` with an explanation.
-	- Agent-generated guidance files (e.g., the development guidelines file
-		based on agent-file-template.md) MUST remain consistent with the
-		principles defined here and MUST NOT redefine governance.
+- **Kepatuhan & Review**
+	- Semua PR yang menyentuh file spec, plan, tasks, atau checklist HARUS
+		dievaluasi terhadap konstitusi ini.
+	- Placeholder di dokumen fitur yang dikomit HARUS diselesaikan atau dengan
+		jelas ditandai sebagai `NEEDS CLARIFICATION` beserta penjelasannya.
+	- File panduan yang dibuat agen (misalnya development guidelines yang
+		berdasarkan agent-file-template.md) HARUS tetap konsisten dengan prinsip
+		yang didefinisikan di sini dan TIDAK BOLEH mendefinisikan ulang tata
+		kelola.
 
-- **Runtime Guidance**
-	- Day-to-day development practices SHOULD reference the development
-		guidelines generated from `agent-file-template.md`, but those guidelines
-		MUST stay subordinate to this constitution.
+- **Panduan Runtime**
+	- Praktik pengembangan harian SEBAIKNYA merujuk ke development guidelines
+		yang dihasilkan dari `agent-file-template.md`, tetapi guideline tersebut
+		HARUS tetap berada di bawah konstitusi ini.
 
-**Version**: 1.0.0 | **Ratified**: 2026-03-04 | **Last Amended**: 2026-03-04
+**Versi**: 1.0.0 | **Diratifikasi**: 2026-03-04 | **Terakhir Diubah**: 2026-03-04
 

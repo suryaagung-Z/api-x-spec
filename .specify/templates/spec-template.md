@@ -1,115 +1,115 @@
-# Feature Specification: [FEATURE NAME]
+# Spesifikasi Fitur: [FEATURE NAME]
 
 **Feature Branch**: `[###-feature-name]`  
-**Created**: [DATE]  
+**Dibuat**: [DATE]  
 **Status**: Draft  
-**Input**: User description: "$ARGUMENTS"
+**Input**: Deskripsi pengguna: "$ARGUMENTS"
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing *(wajib)*
 
 <!--
-  IMPORTANT: User stories should be PRIORITIZED as user journeys ordered by importance.
-  Each user story/journey must be INDEPENDENTLY TESTABLE - meaning if you implement just ONE of them,
-  you should still have a viable MVP (Minimum Viable Product) that delivers value.
+  PENTING: User story harus DIPRIORITASKAN sebagai perjalanan pengguna (user journey) yang diurutkan berdasarkan pentingnya.
+  Setiap user story/journey harus DAPAT DIUJI SECARA MANDIRI - artinya jika Anda hanya mengimplementasikan SATU story,
+  tetap harus ada MVP (Minimum Viable Product) yang memberikan nilai.
   
-  Assign priorities (P1, P2, P3, etc.) to each story, where P1 is the most critical.
-  Think of each story as a standalone slice of functionality that can be:
-  - Developed independently
-  - Tested independently
-  - Deployed independently
-  - Demonstrated to users independently
+  Berikan prioritas (P1, P2, P3, dst.) untuk setiap story, di mana P1 adalah yang paling kritis.
+  Pikirkan setiap story sebagai irisan fungsionalitas mandiri yang dapat:
+  - Dikembangkan secara mandiri
+  - Diuji secara mandiri
+  - Dideploy secara mandiri
+  - Didemonstrasikan ke pengguna secara mandiri
 -->
 
-### User Story 1 - [Brief Title] (Priority: P1)
+### User Story 1 - [Judul Singkat] (Prioritas: P1)
 
-[Describe this user journey in plain language]
+[Jelaskan perjalanan pengguna ini dengan bahasa sederhana]
 
-**Why this priority**: [Explain the value and why it has this priority level]
+**Alasan prioritas ini**: [Jelaskan nilai yang diberikannya dan mengapa level prioritasnya demikian]
 
-**Independent Test**: [Describe how this can be tested independently - e.g., "Can be fully tested by [specific action] and delivers [specific value]"]
-
-**Acceptance Scenarios**:
-
-1. **Given** [initial state], **When** [action], **Then** [expected outcome]
-2. **Given** [initial state], **When** [action], **Then** [expected outcome]
-
----
-
-### User Story 2 - [Brief Title] (Priority: P2)
-
-[Describe this user journey in plain language]
-
-**Why this priority**: [Explain the value and why it has this priority level]
-
-**Independent Test**: [Describe how this can be tested independently]
+**Independent Test**: [Jelaskan bagaimana story ini dapat diuji secara mandiri - misalnya, "Dapat diuji penuh dengan [aksi spesifik] dan menghasilkan [nilai spesifik]"]
 
 **Acceptance Scenarios**:
 
-1. **Given** [initial state], **When** [action], **Then** [expected outcome]
+1. **Given** [kondisi awal], **When** [aksi], **Then** [hasil yang diharapkan]
+2. **Given** [kondisi awal], **When** [aksi], **Then** [hasil yang diharapkan]
 
 ---
 
-### User Story 3 - [Brief Title] (Priority: P3)
+### User Story 2 - [Judul Singkat] (Prioritas: P2)
 
-[Describe this user journey in plain language]
+[Jelaskan perjalanan pengguna ini dengan bahasa sederhana]
 
-**Why this priority**: [Explain the value and why it has this priority level]
+**Alasan prioritas ini**: [Jelaskan nilai yang diberikannya dan mengapa level prioritasnya demikian]
 
-**Independent Test**: [Describe how this can be tested independently]
+**Independent Test**: [Jelaskan bagaimana story ini dapat diuji secara mandiri]
 
 **Acceptance Scenarios**:
 
-1. **Given** [initial state], **When** [action], **Then** [expected outcome]
+1. **Given** [kondisi awal], **When** [aksi], **Then** [hasil yang diharapkan]
 
 ---
 
-[Add more user stories as needed, each with an assigned priority]
+### User Story 3 - [Judul Singkat] (Prioritas: P3)
+
+[Jelaskan perjalanan pengguna ini dengan bahasa sederhana]
+
+**Alasan prioritas ini**: [Jelaskan nilai yang diberikannya dan mengapa level prioritasnya demikian]
+
+**Independent Test**: [Jelaskan bagaimana story ini dapat diuji secara mandiri]
+
+**Acceptance Scenarios**:
+
+1. **Given** [kondisi awal], **When** [aksi], **Then** [hasil yang diharapkan]
+
+---
+
+[Tambahkan user story lain bila perlu, masing-masing dengan prioritas yang jelas]
 
 ### Edge Cases
 
 <!--
-  ACTION REQUIRED: The content in this section represents placeholders.
-  Fill them out with the right edge cases.
+  AKSI WAJIB: Konten di bagian ini adalah placeholder.
+  Gantilah dengan edge case yang relevan untuk fitur Anda.
 -->
 
-- What happens when [boundary condition]?
-- How does system handle [error scenario]?
+- Apa yang terjadi ketika [kondisi batas]?
+- Bagaimana sistem menangani [skenario error]?
 
-## Requirements *(mandatory)*
+## Requirements *(wajib)*
 
 <!--
-  ACTION REQUIRED: The content in this section represents placeholders.
-  Fill them out with the right functional requirements.
+  AKSI WAJIB: Konten di bagian ini adalah placeholder.
+  Gantilah dengan requirement fungsional yang tepat.
 -->
 
 ### Functional Requirements
 
-- **FR-001**: System MUST [specific capability, e.g., "allow users to create accounts"]
-- **FR-002**: System MUST [specific capability, e.g., "validate email addresses"]  
-- **FR-003**: Users MUST be able to [key interaction, e.g., "reset their password"]
-- **FR-004**: System MUST [data requirement, e.g., "persist user preferences"]
-- **FR-005**: System MUST [behavior, e.g., "log all security events"]
+- **FR-001**: Sistem HARUS [kapabilitas spesifik, misalnya "mengizinkan pengguna membuat akun"]
+- **FR-002**: Sistem HARUS [kapabilitas spesifik, misalnya "memvalidasi alamat email"]  
+- **FR-003**: Pengguna HARUS dapat [interaksi utama, misalnya "melakukan reset kata sandi"]
+- **FR-004**: Sistem HARUS [kebutuhan data, misalnya "menyimpan preferensi pengguna"]
+- **FR-005**: Sistem HARUS [perilaku, misalnya "mencatat semua event keamanan"]
 
-*Example of marking unclear requirements:*
+*Contoh penandaan requirement yang belum jelas:*
 
-- **FR-006**: System MUST authenticate users via [NEEDS CLARIFICATION: auth method not specified - email/password, SSO, OAuth?]
-- **FR-007**: System MUST retain user data for [NEEDS CLARIFICATION: retention period not specified]
+- **FR-006**: Sistem HARUS melakukan autentikasi pengguna melalui [NEEDS CLARIFICATION: metode autentikasi belum ditentukan - email/password, SSO, OAuth?]
+- **FR-007**: Sistem HARUS menyimpan data pengguna selama [NEEDS CLARIFICATION: periode retensi belum ditentukan]
 
-### Key Entities *(include if feature involves data)*
+### Key Entities *(sertakan jika fitur melibatkan data)*
 
-- **[Entity 1]**: [What it represents, key attributes without implementation]
-- **[Entity 2]**: [What it represents, relationships to other entities]
+- **[Entity 1]**: [Apa yang direpresentasikan, atribut kunci tanpa detail implementasi]
+- **[Entity 2]**: [Apa yang direpresentasikan, relasi dengan entitas lain]
 
-## Success Criteria *(mandatory)*
+## Success Criteria *(wajib)*
 
 <!--
-  ACTION REQUIRED: Define measurable success criteria.
-  These must be technology-agnostic and measurable.
+  AKSI WAJIB: Definisikan kriteria keberhasilan yang terukur.
+  Kriteria ini harus agnostik terhadap teknologi dan dapat diukur.
 -->
 
 ### Measurable Outcomes
 
-- **SC-001**: [Measurable metric, e.g., "Users can complete account creation in under 2 minutes"]
-- **SC-002**: [Measurable metric, e.g., "System handles 1000 concurrent users without degradation"]
-- **SC-003**: [User satisfaction metric, e.g., "90% of users successfully complete primary task on first attempt"]
-- **SC-004**: [Business metric, e.g., "Reduce support tickets related to [X] by 50%"]
+- **SC-001**: [Metrik terukur, misalnya "Pengguna dapat menyelesaikan pembuatan akun dalam waktu kurang dari 2 menit"]
+- **SC-002**: [Metrik terukur, misalnya "Sistem menangani 1000 pengguna bersamaan tanpa degradasi yang terlihat"]
+- **SC-003**: [Metrik kepuasan pengguna, misalnya "90% pengguna berhasil menyelesaikan tugas utama pada percobaan pertama"]
+- **SC-004**: [Metrik bisnis, misalnya "Mengurangi tiket support terkait [X] sebesar 50%"]

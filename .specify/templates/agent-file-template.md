@@ -1,26 +1,26 @@
-# [PROJECT NAME] Development Guidelines
+# [PROJECT NAME] Panduan Pengembangan
 
-Auto-generated from all feature plans. Last updated: [DATE]
+Dibuat otomatis dari semua feature plan. Terakhir diperbarui: [DATE]
 
-## Active Technologies
+## Teknologi Aktif
 
 [EXTRACTED FROM ALL PLAN.MD FILES]
 
-## Project Structure
+## Struktur Proyek
 
 ```text
 [ACTUAL STRUCTURE FROM PLANS]
 ```
 
-## Commands
+## Perintah
 
 [ONLY COMMANDS FOR ACTIVE TECHNOLOGIES]
 
-## Code Style
+## Gaya Kode
 
 [LANGUAGE-SPECIFIC, ONLY FOR LANGUAGES IN USE]
 
-## Recent Changes
+## Perubahan Terbaru
 
 [LAST 3 FEATURES AND WHAT THEY ADDED]
 

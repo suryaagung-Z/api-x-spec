@@ -1,50 +1,50 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# [PROJECT_NAME] Konstitusi
+<!-- Contoh: Spec Constitution, TaskFlow Constitution, dll. -->
 
-## Core Principles
+## Prinsip Inti
 
 ### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
+<!-- Contoh: I. Library-First -->
 [PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+<!-- Contoh: Setiap fitur dimulai sebagai library mandiri; Library harus self-contained, dapat diuji secara mandiri, terdokumentasi; Tujuan jelas diperlukan - tidak ada library khusus organisasi saja -->
 
 ### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
+<!-- Contoh: II. Antarmuka CLI -->
 [PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+<!-- Contoh: Setiap library mengekspos fungsionalitas lewat CLI; Protokol teks in/out: stdin/args → stdout, error → stderr; Mendukung format JSON + teks mudah dibaca manusia -->
 
 ### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
+<!-- Contoh: III. Test-First (TIDAK DAPAT DITAWAR) -->
 [PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+<!-- Contoh: TDD wajib: Test ditulis → Disetujui user → Test gagal → Baru implementasi; Siklus Red-Green-Refactor ditegakkan secara ketat -->
 
 ### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
+<!-- Contoh: IV. Integration Testing -->
 [PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+<!-- Contoh: Area fokus yang membutuhkan integration test: Contract test library baru, perubahan contract, komunikasi antar service, schema bersama -->
 
 ### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
+<!-- Contoh: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
 [PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+<!-- Contoh: I/O teks memastikan kemudahan debug; Logging terstruktur diwajibkan; Atau: format MAJOR.MINOR.BUILD; Atau: Mulai sederhana, prinsip YAGNI -->
 
 ## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+<!-- Contoh: Batasan Tambahan, Kebutuhan Keamanan, Standar Performa, dll. -->
 
 [SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+<!-- Contoh: Kebutuhan technology stack, standar compliance, kebijakan deployment, dll. -->
 
 ## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+<!-- Contoh: Alur Kerja Pengembangan, Proses Review, Quality Gate, dll. -->
 
 [SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+<!-- Contoh: Kebutuhan code review, gate pengujian, proses persetujuan deployment, dll. -->
 
-## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
+## Tata Kelola
+<!-- Contoh: Konstitusi menggantikan praktik lain; Amandemen butuh dokumentasi, persetujuan, dan rencana migrasi -->
 
 [GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+<!-- Contoh: Semua PR/review harus memverifikasi kepatuhan; Kompleksitas harus dibenarkan; Gunakan [GUIDANCE_FILE] untuk panduan runtime development -->
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Versi**: [CONSTITUTION_VERSION] | **Diratifikasi**: [RATIFICATION_DATE] | **Terakhir Diubah**: [LAST_AMENDED_DATE]
+<!-- Contoh: Versi: 2.1.1 | Diratifikasi: 2025-06-13 | Terakhir Diubah: 2025-07-16 -->
