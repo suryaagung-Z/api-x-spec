@@ -1,8 +1,8 @@
-# Daftar Periksa Kualitas Spesifikasi: Event Management
+# Daftar Periksa Kualitas Spesifikasi: Admin Reporting
 
 **Tujuan**: Memvalidasi kelengkapan dan kualitas spesifikasi sebelum masuk ke tahap perencanaan  
 **Dibuat**: 2026-03-05  
-**Fitur**: [specs/002-event-management/spec.md](specs/002-event-management/spec.md)
+**Fitur**: [specs/004-admin-reporting/spec.md](specs/004-admin-reporting/spec.md)
 
 ## Kualitas Konten
 
