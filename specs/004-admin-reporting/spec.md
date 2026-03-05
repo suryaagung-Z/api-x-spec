@@ -5,6 +5,16 @@
 **Status**: Draft  
 **Input**: Deskripsi pengguna: "Feature: Admin Reporting - Admin dapat melihat statistik peserta untuk monitoring event."
 
+## Clarifications
+
+### Session 2026-03-05
+
+- Q: Apa definisi tepat "event aktif" yang digunakan dalam konteks laporan reporting — apakah hanya berdasarkan `status`, atau juga mempertimbangkan `date`? → A: "Event aktif" untuk reporting didefinisikan sebagai event dengan `status=aktif` DAN `date` belum lewat pada saat query dijalankan, konsisten dengan definisi filter daftar event publik.
+- Q: Apakah `total_registered` dihitung hanya dari Event Registration berstatus `aktif`, atau juga termasuk yang berstatus `dibatalkan`? → A: `total_registered` hanya menghitung Event Registration berstatus `aktif`; record berstatus `dibatalkan` tidak ikut dihitung, konsisten dengan cara kuota dihitung di fitur Event Registration.
+- Q: Apakah statistik per event dan ringkasan `total_active_events` disajikan melalui satu endpoint atau dua endpoint terpisah? → A: Dua endpoint terpisah — (1) endpoint statistik per event mengembalikan daftar event aktif dengan `total_registered` dan `remaining_quota` per event (dapat dipaginasi); (2) endpoint ringkasan mengembalikan `total_active_events` sebagai angka tunggal.
+- Q: Bagaimana perilaku `remaining_quota` jika nilainya negatif (misalnya `total_registered` melebihi `quota`)? → A: `remaining_quota` ditampilkan sebagai nilai aktual (`quota - total_registered`), termasuk jika hasilnya negatif, sehingga admin dapat mendeteksi anomali data tanpa sistem menyimpan atau men-clamp nilai tersebut.
+- Q: Berapa target latensi terukur untuk permintaan laporan agar SC-002 dapat dijadikan acceptance criterion yang testable? → A: ≥95% permintaan laporan (p95) HARUS diselesaikan dalam ≤2 detik dengan hingga 10.000 event aktif dan data pendaftaran proporsional pada beban normal.
+
 ## User Scenarios & Testing *(wajib)*
 
 ### User Story 1 - Admin melihat statistik peserta per event (Prioritas: P1)
@@ -54,7 +64,7 @@ User biasa (non-admin) tidak boleh dapat mengakses laporan statistik peserta eve
 
 ### Edge Cases
 
-- Event dengan kuota 0 (misalnya event khusus undangan) tetapi memiliki peserta yang tercatat: sistem tetap harus menampilkan total_registered sesuai jumlah peserta dan remaining_quota yang dapat menjadi 0 atau negatif, sesuai kebijakan yang ditentukan, tanpa menyebabkan error pada laporan.
+- Event dengan kuota 0 (misalnya event khusus undangan) tetapi memiliki peserta yang tercatat: sistem tetap harus menampilkan `total_registered` sesuai jumlah peserta aktif dan `remaining_quota` sebagai nilai aktual (`quota - total_registered`), yang dapat bernilai negatif, tanpa menyebabkan error pada laporan.
 - Event yang statusnya berubah (misalnya dari aktif menjadi non-aktif atau dihapus) di saat laporan sedang diambil: sistem harus menetapkan aturan konsisten mengenai definisi "event aktif" dan hanya menghitung event yang memenuhi kriteria tersebut pada saat query dijalankan.
 - Jumlah event dan pendaftaran yang sangat besar: laporan tetap harus dapat diambil tanpa waktu respon yang tidak wajar, dengan mengandalkan perhitungan agregasi yang efisien.
 
@@ -62,11 +72,14 @@ User biasa (non-admin) tidak boleh dapat mengakses laporan statistik peserta eve
 
 ### Functional Requirements
 
-- **FR-001**: Sistem HARUS menyediakan kemampuan bagi admin untuk melihat jumlah peserta terdaftar (total_registered) untuk setiap event aktif.
-- **FR-002**: Sistem HARUS menampilkan remaining_quota untuk setiap event aktif sebagai selisih antara kuota event dan jumlah peserta yang terdaftar.
-- **FR-003**: Sistem HARUS menyediakan ringkasan total jumlah event aktif yang dapat dilihat admin tanpa harus menelusuri satu per satu event.
+- **FR-001**: Sistem HARUS menyediakan kemampuan bagi admin untuk melihat jumlah peserta terdaftar (total_registered) untuk setiap event yang memenuhi definisi "event aktif", yaitu event dengan `status=aktif` DAN `date` belum lewat pada saat query dijalankan.
+- **FR-002**: Sistem HARUS menampilkan remaining_quota untuk setiap event aktif sebagai selisih antara kuota event dan jumlah peserta yang terdaftar; definisi "event aktif" mengikuti FR-001 (`status=aktif` DAN `date` belum lewat).
+- **FR-003**: Sistem HARUS menyediakan ringkasan total jumlah event aktif (`status=aktif` DAN `date` belum lewat) yang dapat dilihat admin tanpa harus menelusuri satu per satu event.
 - **FR-004**: Sistem HARUS hanya mengizinkan akun dengan role admin untuk mengakses endpoint atau tampilan pelaporan ini; permintaan dari user biasa atau pihak yang tidak berotorisasi HARUS ditolak.
 - **FR-005**: Sistem HARUS mengambil data statistik peserta (total_registered dan remaining_quota) berdasarkan data event dan pendaftaran peserta yang sudah ada, sehingga nilai yang ditampilkan selalu konsisten dengan sumber data utama.
+- **FR-006**: Sistem HARUS menghitung `total_registered` hanya dari Event Registration berstatus `aktif`; record berstatus `dibatalkan` TIDAK BOLEH ikut dihitung dalam nilai `total_registered` maupun dalam perhitungan `remaining_quota`.
+- **FR-007**: Sistem HARUS menyediakan dua endpoint pelaporan terpisah untuk admin: (1) endpoint statistik per event yang mengembalikan daftar event aktif dengan `total_registered` dan `remaining_quota` untuk masing-masing event, dengan dukungan pagination; (2) endpoint ringkasan yang mengembalikan `total_active_events` sebagai nilai tunggal.
+- **FR-008**: Sistem HARUS menghitung dan menampilkan `remaining_quota` sebagai nilai aktual (`quota - total_registered`), termasuk jika hasilnya bernilai negatif; sistem TIDAK BOLEH men-clamp nilai ini ke 0 sehingga admin dapat mendeteksi anomali data.
 
 ### Non-Functional Requirements
 
@@ -83,12 +96,12 @@ User biasa (non-admin) tidak boleh dapat mengakses laporan statistik peserta eve
 ### Measurable Outcomes
 
 - **SC-001**: 100% percobaan uji otomatis yang membandingkan nilai total_registered dan remaining_quota di laporan dengan data dasar event dan pendaftaran menunjukkan hasil yang konsisten.
-- **SC-002**: Dalam skenario uji dengan ratusan hingga ribuan event aktif dan pendaftaran yang besar, sebagian besar (misalnya ≥95%) permintaan laporan diselesaikan dalam waktu yang dirasakan admin sebagai "segera" pada beban normal.
+- **SC-002**: Dalam skenario uji dengan hingga 10.000 event aktif dan data pendaftaran proporsional, setidaknya 95% permintaan laporan (p95) diselesaikan dalam waktu ≤ 2 detik pada beban normal.
 - **SC-003**: 100% percobaan akses laporan yang dilakukan oleh user biasa (non-admin) dalam automated test ditolak dan tidak pernah mengembalikan data statistik event.
 
 ## Assumptions & Dependencies
 
-- Definisi "event aktif" mengikuti spesifikasi Event Management (misalnya berdasarkan status event dan/atau tanggal event) dan digunakan secara konsisten di seluruh sistem.
+- Definisi "event aktif" untuk fitur ini adalah event dengan `status=aktif` DAN `date` belum lewat pada saat query dijalankan, konsisten dengan filter daftar event publik di spesifikasi Event Management.
 - Fitur ini bergantung pada data yang dihasilkan oleh fitur Event Management dan Event Registration, termasuk kuota event, status event, dan data pendaftaran peserta.
 - Detail teknis mengenai struktur query, indeks, dan mekanisme agregasi yang digunakan untuk menghitung statistik akan ditentukan pada tahap desain teknis, selama tetap memenuhi requirement tentang efisiensi dan menghindari N+1 problem.
 - Mekanisme autentikasi dan otorisasi mengikuti spesifikasi `001-authentication` untuk membedakan role admin dan user biasa.

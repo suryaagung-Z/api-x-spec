@@ -1,230 +1,159 @@
 <!--
-Laporan Dampak Sinkronisasi
-
-- Perubahan versi: none → 1.0.0 (ratifikasi awal)
-- Prinsip yang diubah: (baru) I. Desain API Berbasis Spesifikasi; (baru) II. User Story yang Dapat Diuji Secara Mandiri; (baru) III. Implementasi Berbasis Rencana; (baru) IV. Teks-First, CLI & Git Native; (baru) V. Kesederhanaan, Keterlacakan & Review
-- Bagian yang ditambahkan: Prinsip Inti; Batasan Dokumentasi & Template; Alur Kerja Pengembangan & Quality Gate; Tata Kelola
-- Bagian yang dihapus: none
-- Status template:
-	- .specify/templates/plan-template.md: ✅ diperbarui (gate Constitution Check + tautan pelacakan kompleksitas)
-	- .specify/templates/spec-template.md: ✅ selaras (bagian wajib sudah sesuai)
-	- .specify/templates/tasks-template.md: ✅ selaras (pengelompokan dan kemandirian user story)
-	- .specify/templates/checklist-template.md: ✅ selaras (tidak ada aturan khusus konstitusi)
-	- .specify/templates/agent-file-template.md: ✅ selaras (hanya panduan runtime)
-- TODO tertunda: none
+Sync Impact Report
+- Version change: N/A → 1.0.0
+- Modified principles: (initial ratification of all principles)
+- Added sections: Core Principles; Technology & Architecture Constraints;
+	Development Workflow & Quality Gates; Governance
+- Removed sections: none
+- Templates:
+	- ✅ .specify/templates/plan-template.md – Constitution Check gates updated
+		for Python stack, clean architecture, and testing.
+	- ✅ .specify/templates/spec-template.md – Already aligned; no changes
+		required.
+	- ✅ .specify/templates/tasks-template.md – Testing language aligned with
+		test-first, non-optional tests.
+- Follow-up TODOs: none.
 -->
 
-# Konstitusi API-X Spec
+# API-X Spec Constitution
 
-## Prinsip Inti
+## Core Principles
 
-### I. Desain API Berbasis Spesifikasi (TIDAK DAPAT DITAWAR)
+### I. Python API Stack (Non-Negotiable)
 
-Pekerjaan API-X HARUS dimulai dari spesifikasi fitur tertulis di
-`/specs/[###-feature-name]/spec.md`. Tidak ada pekerjaan implementasi yang
-dianggap valid untuk proyek ini kecuali dapat ditelusuri kembali ke spesifikasi
-dan rencana implementasi yang disetujui.
+- Backend services MUST be implemented in Python (default: 3.11+), unless a
+	different language is explicitly justified in the feature plan.
+- HTTP APIs for new backend features MUST use a mainstream, well-supported
+	framework (default recommendation: FastAPI). Alternative frameworks MUST be
+	justified in the plan.
+- Third-party libraries MUST be popular, actively maintained, and
+	well-documented. Niche or unmaintained libraries MAY be used only with clear
+	risk acknowledgment and fallback strategy in the plan.
 
-- Setiap perubahan yang memengaruhi perilaku HARUS berawal dari spesifikasi
-	fitur yang tersimpan di repository.
-- Spesifikasi HARUS menggunakan bagian standar dari template spesifikasi fitur:
-	User Scenarios & Testing, Requirements, dan Success Criteria.
-- Spesifikasi HARUS mendefinisikan setidaknya satu user story prioritas (P1)
-	yang memberikan irisan nilai yang layak dan dapat diuji secara mandiri.
-- Spesifikasi belum dianggap "siap" sampai kriteria keberhasilan terukur dan
-	agnostik terhadap teknologi.
+### II. Clean Architecture Boundaries
 
-Alasan: Ini menjaga desain API-X tetap berniat, dapat direview, dan dapat diaudit,
-serta mencegah pekerjaan ad-hoc yang tidak dapat ditelusuri ke hasil yang
-dihadapi pengguna.
+- Business rules and domain models MUST be framework-agnostic plain Python
+	code.
+- The architecture MUST separate at least these concerns:
+	- API layer (e.g., FastAPI routers/controllers)
+	- Application/services/use-case layer
+	- Domain layer (entities, value objects, domain logic)
+	- Infrastructure/adapters (ORMs, HTTP clients, messaging, persistence)
+- Dependencies MUST point inward: outer layers may depend on inner layers, but
+	domain code MUST NOT depend on frameworks or infrastructure details.
+- Each feature MUST document where its composition root lives (e.g., API
+	startup module or dependency-injection container) and how dependencies are
+	wired.
 
-### II. User Story yang Dapat Diuji Secara Mandiri
+### III. Test-First & Fast Feedback (Non-Negotiable)
 
-User story adalah unit perencanaan utama dan HARUS dapat diuji serta dikirimkan
-secara mandiri.
+- Every user story that introduces or changes behavior MUST have automated
+	tests before it is considered done.
+- Unit tests MUST exist for core domain and application logic. HTTP APIs and
+	integrations SHOULD have contract and/or integration tests where they are
+	part of the story value.
+- Tests SHOULD be written before or alongside implementation and MUST fail at
+	least once before being made to pass (red-green-refactor spirit).
+- The default testing stack for Python APIs is `pytest` with tests organized
+	under `tests/unit`, `tests/integration`, and `tests/contract` as appropriate.
+	Deviations MUST be justified in the plan.
 
-- Setiap user story di spec.md HARUS:
-	- Diprioritaskan (P1, P2, P3, …).
-	- Mendeskripsikan perjalanan pengguna yang lengkap dan dapat divalidasi
-		secara terpisah.
-	- Menyertakan setidaknya satu deskripsi "Independent Test" eksplisit.
-- Task yang dihasilkan untuk sebuah fitur HARUS dikelompokkan per user story
-	sehingga setiap story dapat diimplementasikan dan diuji tanpa bergantung pada
-	selesainya story lain, kecuali fondasi bersama yang dijelaskan dengan jelas.
-- Harus memungkinkan untuk mendemonstrasikan setiap story P1/P2 yang selesai
-	sebagai inkremen MVP yang koheren tanpa mengasumsikan story lain yang belum
-	selesai.
+### IV. Specification-Driven APIs & Contracts
 
-Alasan: Story yang mandiri memungkinkan delivery bertahap, trade-off yang lebih
-jelas, dan lebih mudah memvalidasi perilaku terhadap spesifikasi.
+- Every feature MUST start from a written specification under `specs/` using
+	the project spec template.
+- Behavior, inputs, outputs, and error envelopes for APIs MUST be derived from
+	and traceable back to the feature spec.
+- Where HTTP/JSON contracts are exposed, they SHOULD be capturable as
+	OpenAPI/JSON Schema or equivalent artifacts during planning or contracts
+	phases.
+- Changes to external contracts (request/response schemas, status codes,
+	error formats) MUST be documented in the spec and validated by tests.
 
-### III. Implementasi Berbasis Rencana
+### V. Simplicity, Observability, and Versioning Discipline
 
-Implementasi HARUS mengikuti rencana eksplisit (plan.md) yang diturunkan dari
-spesifikasi.
+- The simplest architecture that satisfies the spec MUST be preferred. New
+	services, projects, or abstraction layers MUST be justified and, when
+	necessary, captured in the complexity tracking section of the plan.
+- Logging and error reporting MUST be sufficient to debug issues in
+	production-like environments without relying on ad-hoc print debugging.
+- Public APIs and libraries MUST follow semantic versioning for breaking
+	changes. Breaking changes to existing behavior MUST be explicitly called out
+	in specs and plans, with migration guidance where applicable.
 
-- Setiap feature branch HARUS memiliki rencana implementasi di
-	`/specs/[###-feature-name]/plan.md` sebelum pekerjaan implementasi non-spike
-	dimulai.
-- Rencana HARUS merangkum fitur dalam konteks proyek, mendokumentasikan
-	struktur yang dipilih (single-project, web app, mobile, dll.), dan
-	mengidentifikasi pekerjaan fondasi vs. pekerjaan spesifik user story.
-- Bagian "Constitution Check" di plan.md HARUS diisi dan dijaga tetap mutakhir;
-	bagian ini bertindak sebagai gate pemblokir sebelum riset Fase 0 dan HARUS
-	di-validasi ulang setelah desain Fase 1.
-- Setiap deviasi atau kompleksitas tambahan yang disengaja (misalnya layer
-	tambahan, project tambahan, pola non-trivial) HARUS didokumentasikan dalam
-	tabel "Complexity Tracking" di plan.md dengan justifikasi yang jelas.
+## Technology & Architecture Constraints
 
-Alasan: Rencana membuat implementasi menjadi lebih terprediksi, dapat
-direview, dan selaras dengan spesifikasi serta konstitusi ini.
+- **Language**: Python is the primary implementation language for backend
+	APIs. Default runtime target is Python 3.11+; other versions MUST be
+	explicitly stated in the plan.
+- **Frameworks**: New HTTP APIs SHOULD default to FastAPI. Other frameworks
+	(Flask, Django REST Framework, etc.) MAY be used when justified by
+	requirements (ecosystem fit, existing codebase) and called out in the plan.
+- **Project structure** (default for new Python API features):
 
-### IV. Teks-First, CLI & Git Native
+	```text
+	src/
+	├── api/          # routers/controllers
+	├── application/  # use cases, services
+	├── domain/       # entities, value objects, domain logic
+	└── infrastructure/ # DB, messaging, external integrations
 
-Proyek ini dioptimalkan untuk workflow berbasis teks, tool CLI, dan Git.
+	tests/
+	├── unit/
+	├── integration/
+	└── contract/
+	```
 
-- Semua pengetahuan proyek yang bersifat permanen (spec, plan, tasks,
-	checklist, guideline) HARUS disimpan dalam file teks/Markdown yang
-	terversi di repository ini.
-- Otomasi (misalnya perintah `/speckit.*`) HARUS berkomunikasi melalui I/O teks:
-	argumen/stdin sebagai input, Markdown atau teks terstruktur sebagai output.
-- Tidak boleh ada state proyek penting yang hanya ada di tool eksternal, UI,
-	atau memori agen; jika penting, HARUS ditulis kembali ke file yang
-	terlacak.
-- File yang dihasilkan otomatis HARUS tetap mudah dibaca manusia dan aman
-	untuk direview dalam workflow Git biasa.
+- **Type safety & quality**:
+	- Public modules and functions MUST use type hints.
+	- Code MUST be formatted with an auto-formatter (e.g., black) and checked by
+		a linter (e.g., ruff/flake8). The chosen tools MUST be documented in the
+		plan or project README.
+- **Configuration**: Runtime configuration (secrets, connection strings,
+	environment-specific values) MUST come from environment variables or a
+	configuration system that can be safely managed per environment. Hard-coded
+	secrets are forbidden.
+- **Dependencies**: Dependencies MUST be pinned or constrained via a standard
+	mechanism (e.g., `requirements.txt`, `pyproject.toml`) and reviewed in
+	code review.
 
-Alasan: Workflow berbasis teks dan Git menjaga sistem tetap transparan,
-mudah di-diff, dan mudah diaudit dari waktu ke waktu.
+## Development Workflow & Quality Gates
 
-### V. Kesederhanaan, Keterlacakan & Review
+- Each feature follows the Speckit flow: spec → clarify (as needed) → plan →
+	research/data-model/contracts → tasks → implementation.
+- The "Constitution Check" section in the implementation plan is a mandatory
+	gate: features MUST not proceed to implementation if they violate core
+	principles without explicit, documented justification.
+- A feature is considered ready for merge only when:
+	- The spec is up to date with the implemented behavior.
+	- The plan documents architecture, dependencies, and any deviations from
+		default stack or structure.
+	- Tasks cover implementation and testing work and are traceable to user
+		stories.
+	- Automated tests exist and are passing for all impacted behavior.
+- Code review MUST include a check against this constitution. Reviewers are
+	responsible for blocking changes that introduce unjustified complexity,
+	violate clean architecture boundaries, or ship untested behavior.
 
-Pendekatan paling sederhana yang memenuhi spesifikasi dan konstitusi ini HARUS
-diprioritaskan, dan semua pekerjaan HARUS dapat ditelusuri dari kode kembali ke
-spesifikasi.
+## Governance
 
-- Fitur HARUS dapat ditelusuri melalui nama branch, spec.md, plan.md, dan
-	tasks.md; PR HARUS menautkan ke folder spesifikasi yang relevan.
-- Template dan dokumen yang dihasilkan HARUS menghindari abstraksi yang tidak
-	diperlukan; hanya struktur yang membantu kejelasan, pengujian, atau delivery
-	yang diperbolehkan.
-- Setiap peningkatan kompleksitas struktural atau proses (layer tambahan,
-	framework lintas-lapisan, alur non-standar) HARUS:
-	- Dicatat di tabel "Complexity Tracking" pada plan.md.
-	- Menyertakan alasan yang jelas dan alternatif yang lebih sederhana yang
-		ditolak.
-- Reviewer HARUS menolak perubahan yang secara material meningkatkan
-	kompleksitas tanpa justifikasi terdokumentasi yang kredibel.
+- This constitution supersedes ad-hoc conventions when there is a conflict.
+- Amendments to the constitution MUST be proposed via pull request that:
+	- Updates `.specify/memory/constitution.md` including the Sync Impact Report
+		comment.
+	- Bumps the **Version** field according to semantic versioning:
+		- MAJOR: Backward-incompatible governance or principle changes.
+		- MINOR: New principles or sections, or materially expanded guidance.
+		- PATCH: Clarifications, wording fixes, and non-semantic refinements.
+	- Updates affected templates (plan, spec, tasks, commands, prompts) so they
+		remain aligned with the constitution.
+- Ratification and amendments MUST be reviewed and approved by the designated
+	technical owner(s) of this repository (or their delegate) before merge.
+- Compliance expectations:
+	- Feature plans MUST explicitly call out any intentional deviations from the
+		constitution and document rationale and mitigations.
+	- Periodic reviews MAY be run to ensure live code and specs still reflect
+		these principles; identified gaps SHOULD result in follow-up tasks.
 
-Alasan: Menegakkan kesederhanaan dan keterlacakan menjaga proyek tetap mudah
-dipelihara dan mempermudah diagnosis regresi.
-
-## Batasan Dokumentasi & Template
-
-Bagian ini membatasi bagaimana template dokumentasi di `.specify/templates/`
-digunakan dan dikembangkan.
-
-- Dokumentasi fitur untuk sebuah branch HARUS berada di bawah
-	`/specs/[###-feature-name]/` dengan minimal:
-	- spec.md (spesifikasi fitur),
-	- plan.md (rencana implementasi),
-	- tasks.md (task implementasi),
-	- file checklist opsional yang dibuat lewat `/speckit.checklist`.
-- Bagian-bagian wajib di spec.md (User Scenarios & Testing, Requirements,
-	Success Criteria) HARUS diisi dengan konten konkret sebelum fitur dianggap
-	siap untuk diimplementasikan.
-- File plan yang dihasilkan dari template plan HARUS mempertahankan bagian
-	Constitution Check dan Complexity Tracking lalu memperbaruinya, bukan
-	menghapusnya.
-- File tasks yang dihasilkan dari template tasks HARUS mengorganisasi
-	pekerjaan berdasarkan user story (US1, US2, …) dan dengan jelas menandai
-	pekerjaan fondasi yang memblokir user story.
-- Konten contoh di template (yang ditandai sebagai contoh atau ilustratif
-	saja) TIDAK BOLEH ikut masuk ke dokumentasi fitur yang dikomit.
-
-Alasan: Batasan ini menjaga semua artefak fitur tetap konsisten, dapat
-dianalisis, dan selaras dengan prinsip di atas.
-
-## Alur Kerja Pengembangan & Quality Gate
-
-Workflow ujung-ke-ujung untuk sebuah fitur HARUS mengikuti gate berikut.
-
-1. **Spec Gate**
-	- Fitur baru dimulai dengan spec.md yang disusun menggunakan template spec.
-	- Setidaknya satu story P1 dengan deskripsi independent test HARUS
-		didefinisikan.
-	- Kriteria keberhasilan HARUS terukur dan berfokus pada hasil pengguna atau
-		sistem, bukan detail implementasi.
-
-2. **Plan Gate**
-	- Rencana implementasi (plan.md) HARUS dibuat dari template plan.
-	- Bagian Constitution Check HARUS diisi sebelum riset Fase 0 berjalan.
-	- Struktur proyek dan fondasi yang dipilih HARUS didokumentasikan.
-
-3. **Tasks Gate**
-	- Task (tasks.md) HARUS dibuat atau ditulis menggunakan template tasks.
-	- Task HARUS dikelompokkan berdasarkan user story dan mencerminkan
-		kemandirian story yang ditetapkan di spec.
-	- Setiap pengujian yang diminta HARUS tercantum sebagai task eksplisit dan
-		ditulis sebelum pekerjaan implementasi yang mengklaim memenuhi pengujian
-		tersebut.
-
-4. **Review Gate**
-	- PR yang mengubah spec, plan, atau tasks HARUS direview untuk
-		kepatuhan terhadap konstitusi.
-	- Review HARUS memverifikasi: keterlacakan (spec → plan → tasks →
-		implementasi), kepatuhan terhadap prinsip kesederhanaan, dan dokumentasi
-		setiap kompleksitas di Complexity Tracking.
-
-5. **Validation Gate**
-	- Sebelum fitur dianggap selesai, Independent Tests yang didokumentasikan
-		untuk setiap story yang selesai dan Success Criteria HARUS benar-benar
-		terpenuhi.
-
-Alasan: Gate eksplisit mencegah pekerjaan yang belum terspesifikasi dengan
-baik atau tidak dapat ditelusuri masuk ke sistem dan menegakkan kualitas yang
-konsisten.
-
-## Tata Kelola
-
-Konstitusi ini mengatur bagaimana spesifikasi, rencana, task, dan artefak
-terkait dibuat dan dikelola untuk API-X.
-
-- **Otoritas**
-	- Konstitusi ini menggantikan praktik ad-hoc terkait cara menyusun spec,
-		plan, dan tasks di repository ini.
-	- Semua perintah `/speckit.*` dan panduan pengembangan apa pun yang
-		diturunkan darinya HARUS menghormati prinsip-prinsip ini.
-
-- **Amandemen**
-	- Amandemen HARUS diajukan melalui pull request yang:
-		- Mengedit file konstitusi ini.
-		- Memperbarui template yang terdampak di `.specify/templates/`.
-		- Menyertakan ringkasan singkat mengenai alasan dan dampaknya di deskripsi
-			PR.
-	- Versi mengikuti semantic versioning:
-		- MAJOR: Perubahan prinsip yang tidak kompatibel ke belakang atau
-			penghapusan.
-		- MINOR: Prinsip baru atau perluasan panduan yang material.
-		- PATCH: Klarifikasi, perbaikan bahasa, atau penyempurnaan non-semantik.
-	- Laporan Dampak Sinkronisasi di bagian atas file ini HARUS diperbarui pada
-		setiap amandemen untuk mencerminkan perubahan versi dan bagian yang
-		terpengaruh.
-
-- **Kepatuhan & Review**
-	- Semua PR yang menyentuh file spec, plan, tasks, atau checklist HARUS
-		dievaluasi terhadap konstitusi ini.
-	- Placeholder di dokumen fitur yang dikomit HARUS diselesaikan atau dengan
-		jelas ditandai sebagai `NEEDS CLARIFICATION` beserta penjelasannya.
-	- File panduan yang dibuat agen (misalnya development guidelines yang
-		berdasarkan agent-file-template.md) HARUS tetap konsisten dengan prinsip
-		yang didefinisikan di sini dan TIDAK BOLEH mendefinisikan ulang tata
-		kelola.
-
-- **Panduan Runtime**
-	- Praktik pengembangan harian SEBAIKNYA merujuk ke development guidelines
-		yang dihasilkan dari `agent-file-template.md`, tetapi guideline tersebut
-		HARUS tetap berada di bawah konstitusi ini.
-
-**Versi**: 1.0.0 | **Diratifikasi**: 2026-03-04 | **Terakhir Diubah**: 2026-03-04
+**Version**: 1.0.0 | **Ratified**: 2026-03-05 | **Last Amended**: 2026-03-05
 

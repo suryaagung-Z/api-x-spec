@@ -1,0 +1,266 @@
+openapi: "3.1.0"
+
+info:
+  title: Admin Reporting API
+  version: "1.0.0"
+  description: |
+    Admin-only reporting endpoints for the event platform:
+    - Paginated per-event participant statistics (total_registered, remaining_quota)
+    - Summary count of currently active events
+
+    Both endpoints require a valid Bearer JWT with `role=admin`.
+    See `specs/001-authentication/contracts/openapi.yaml` for auth endpoints.
+    See `specs/002-event-management/contracts/openapi.yaml` for event management endpoints.
+    See `specs/003-event-registration/contracts/openapi.yaml` for registration endpoints.
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ──────────────────────────────────────────────
+    # Response bodies
+    # ──────────────────────────────────────────────
+    EventStatItem:
+      type: object
+      required: [id, title, date, quota, total_registered, remaining_quota]
+      description: |
+        Statistics for a single active event.
+        An "active event" has status='active' AND date > now at query time.
+      properties:
+        id:
+          type: integer
+          example: 42
+        title:
+          type: string
+          example: "Tech Conference 2026"
+        date:
+          type: string
+          format: date-time
+          example: "2026-09-15T09:00:00Z"
+        quota:
+          type: integer
+          minimum: 1
+          example: 100
+        total_registered:
+          type: integer
+          minimum: 0
+          description: Count of active (non-cancelled) registrations for this event.
+          example: 87
+        remaining_quota:
+          type: integer
+          description: |
+            quota - total_registered. May be negative if total_registered exceeds quota
+            due to a data anomaly. Never clamped to 0 (FR-008).
+          example: 13
+
+    EventStatsPage:
+      type: object
+      required: [items, total, page, size, pages]
+      description: Paginated response envelope for event statistics list.
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventStatItem"
+        total:
+          type: integer
+          minimum: 0
+          description: Total number of active events matching the query.
+          example: 47
+        page:
+          type: integer
+          minimum: 1
+          description: Current page number (1-based).
+          example: 1
+        size:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: Number of items requested per page.
+          example: 20
+        pages:
+          type: integer
+          minimum: 0
+          description: Total number of pages (ceil(total / size)).
+          example: 3
+
+    ReportSummaryResponse:
+      type: object
+      required: [total_active_events]
+      description: Summary count of currently active events.
+      properties:
+        total_active_events:
+          type: integer
+          minimum: 0
+          description: |
+            Number of events with status='active' AND date > now at query time.
+          example: 47
+
+    # ──────────────────────────────────────────────
+    # Error envelope (inherited — see error-envelope.md)
+    # ──────────────────────────────────────────────
+    ErrorDetail:
+      type: object
+      required: [code, message, httpStatus]
+      properties:
+        code:
+          type: string
+          example: "FORBIDDEN"
+        message:
+          type: string
+          example: "Insufficient permissions"
+        httpStatus:
+          type: integer
+          example: 403
+
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorDetail"
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid JWT token.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: "UNAUTHORIZED"
+              message: "Not authenticated"
+              httpStatus: 401
+
+    Forbidden:
+      description: Authenticated user does not have the admin role.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: "FORBIDDEN"
+              message: "Insufficient permissions"
+              httpStatus: 403
+
+    UnprocessableEntity:
+      description: Invalid pagination parameters.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: "VALIDATION_ERROR"
+              message: "size must be between 1 and 100"
+              httpStatus: 422
+
+security:
+  - bearerAuth: []
+
+paths:
+  /admin/reports/events/stats:
+    get:
+      summary: Get per-event participant statistics (admin)
+      operationId: getEventStats
+      description: |
+        Returns a paginated list of currently active events enriched with:
+        - `total_registered`: count of active (non-cancelled) registrations
+        - `remaining_quota`: quota minus total_registered (may be negative)
+
+        "Active" is defined as `status='active' AND date > now` at query time.
+        Results are ordered by event date ascending, then by event id ascending.
+
+        **Requires admin role.**
+      tags: [Admin Reporting]
+      parameters:
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number (1-based).
+        - name: size
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Number of items per page (max 100).
+      responses:
+        "200":
+          description: Paginated event statistics list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventStatsPage"
+              example:
+                items:
+                  - id: 42
+                    title: "Tech Conference 2026"
+                    date: "2026-09-15T09:00:00Z"
+                    quota: 100
+                    total_registered: 87
+                    remaining_quota: 13
+                  - id: 43
+                    title: "Workshop: Clean Architecture"
+                    date: "2026-10-01T13:00:00Z"
+                    quota: 30
+                    total_registered: 0
+                    remaining_quota: 30
+                total: 47
+                page: 1
+                size: 20
+                pages: 3
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  /admin/reports/events/summary:
+    get:
+      summary: Get total active events count (admin)
+      operationId: getEventsSummary
+      description: |
+        Returns the total number of currently active events as a single scalar value.
+        "Active" is defined as `status='active' AND date > now` at query time.
+
+        **Requires admin role.**
+      tags: [Admin Reporting]
+      responses:
+        "200":
+          description: Total active events count.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportSummaryResponse"
+              example:
+                total_active_events: 47
+        "200-empty":
+          description: No active events exist.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportSummaryResponse"
+              example:
+                total_active_events: 0
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"

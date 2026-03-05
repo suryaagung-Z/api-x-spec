@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# Fungsi PowerShell umum yang analog dengan common.sh
+# Common PowerShell functions analogous to common.sh
 
 function Get-RepoRoot {
     try {
@@ -16,12 +16,12 @@ function Get-RepoRoot {
 }
 
 function Get-CurrentBranch {
-    # Pertama cek apakah variabel environment SPECIFY_FEATURE sudah di-set
+    # First check if SPECIFY_FEATURE environment variable is set
     if ($env:SPECIFY_FEATURE) {
         return $env:SPECIFY_FEATURE
     }
     
-    # Lalu cek git jika tersedia
+    # Then check git if available
     try {
         $result = git rev-parse --abbrev-ref HEAD 2>$null
         if ($LASTEXITCODE -eq 0) {
@@ -31,7 +31,7 @@ function Get-CurrentBranch {
         # Git command failed
     }
     
-    # Untuk repo tanpa git, coba temukan direktori feature terbaru
+    # For non-git repos, try to find the latest feature directory
     $repoRoot = Get-RepoRoot
     $specsDir = Join-Path $repoRoot "specs"
     
@@ -54,7 +54,7 @@ function Get-CurrentBranch {
         }
     }
     
-    # Fallback terakhir
+    # Final fallback
     return "main"
 }
 
@@ -73,15 +73,15 @@ function Test-FeatureBranch {
         [bool]$HasGit = $true
     )
     
-    # Untuk repo tanpa git, kita tidak bisa memaksa penamaan branch tetapi tetap memberi output
+    # For non-git repos, we can't enforce branch naming but still provide output
     if (-not $HasGit) {
-        Write-Warning "[specify] Peringatan: Repository Git tidak terdeteksi; validasi branch dilewati"
+        Write-Warning "[specify] Warning: Git repository not detected; skipped branch validation"
         return $true
     }
     
     if ($Branch -notmatch '^[0-9]{3}-') {
-        Write-Output "ERROR: Bukan berada di feature branch. Branch saat ini: $Branch"
-        Write-Output "Feature branch sebaiknya dinamai seperti: 001-nama-fitur"
+        Write-Output "ERROR: Not on a feature branch. Current branch: $Branch"
+        Write-Output "Feature branches should be named like: 001-feature-name"
         return $false
     }
     return $true
@@ -134,4 +134,3 @@ function Test-DirHasFiles {
         return $false
     }
 }
-

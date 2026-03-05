@@ -1,0 +1,474 @@
+openapi: "3.1.0"
+
+info:
+  title: Event Management API
+  version: "1.0.0"
+  description: |
+    Event management endpoints for the event platform, covering:
+    - Admin CRUD for events (requires ADMIN role from 001-authentication)
+    - Public event listing with offset pagination
+    - Public event detail
+
+    Authentication uses Bearer JWT tokens issued by `POST /auth/login`.
+    See `specs/001-authentication/contracts/openapi.yaml` for auth endpoints.
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ──────────────────────────────────────────────
+    # Enums
+    # ──────────────────────────────────────────────
+    EventStatus:
+      type: string
+      enum: [active, cancelled, deleted]
+      description: |
+        Current lifecycle status of the event.
+        - `active` — visible to public
+        - `cancelled` — hidden from public, visible to admin
+        - `deleted` — soft-deleted; treated as non-existent everywhere
+
+    # ──────────────────────────────────────────────
+    # Request bodies
+    # ──────────────────────────────────────────────
+    EventCreate:
+      type: object
+      required: [title, description, date, registration_deadline, quota]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: "Tech Conference 2025"
+        description:
+          type: string
+          minLength: 1
+          example: "Annual technology conference covering AI, cloud, and open source."
+        date:
+          type: string
+          format: date-time
+          description: Must be timezone-aware (ISO 8601 with offset). Must be after registration_deadline.
+          example: "2025-09-15T09:00:00+07:00"
+        registration_deadline:
+          type: string
+          format: date-time
+          description: Must be timezone-aware. Must be ≤ date.
+          example: "2025-09-01T23:59:59+07:00"
+        quota:
+          type: integer
+          minimum: 1
+          example: 200
+
+    EventUpdate:
+      type: object
+      description: All fields optional. Service merges with existing event values before re-validating deadline ≤ date.
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          minLength: 1
+        date:
+          type: string
+          format: date-time
+          description: Timezone-aware ISO 8601. If provided without registration_deadline, cross-checked against stored deadline.
+        registration_deadline:
+          type: string
+          format: date-time
+          description: Timezone-aware ISO 8601. If provided without date, cross-checked against stored date.
+        quota:
+          type: integer
+          minimum: 1
+          description: Must be ≥ current participant count (if event has registrations).
+
+    # ──────────────────────────────────────────────
+    # Response bodies
+    # ──────────────────────────────────────────────
+    EventResponse:
+      type: object
+      required: [id, title, description, date, registration_deadline, quota, status, created_at, registration_closed]
+      properties:
+        id:
+          type: integer
+          example: 42
+        title:
+          type: string
+          example: "Tech Conference 2025"
+        description:
+          type: string
+          example: "Annual technology conference covering AI, cloud, and open source."
+        date:
+          type: string
+          format: date-time
+          example: "2025-09-15T02:00:00Z"
+        registration_deadline:
+          type: string
+          format: date-time
+          example: "2025-09-01T16:59:59Z"
+        quota:
+          type: integer
+          example: 200
+        status:
+          $ref: "#/components/schemas/EventStatus"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-01-10T08:30:00Z"
+        registration_closed:
+          type: boolean
+          description: |
+            Derived field. True if registration_deadline < current UTC time.
+            Computed at serialization time — not stored in the database.
+          example: false
+
+    PageOfEventResponse:
+      type: object
+      required: [items, total_items, page, page_size, total_pages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventResponse"
+        total_items:
+          type: integer
+          description: Total number of matching events (across all pages).
+          example: 47
+        page:
+          type: integer
+          description: Current page number (1-based).
+          example: 1
+        page_size:
+          type: integer
+          description: Number of items per page.
+          example: 20
+        total_pages:
+          type: integer
+          description: Derived field — ceil(total_items / page_size).
+          example: 3
+
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, httpStatus]
+          properties:
+            code:
+              type: string
+              example: "EVENT_NOT_FOUND"
+            message:
+              type: string
+              example: "Event 42 not found"
+            httpStatus:
+              type: integer
+              example: 404
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Security defaults
+# ──────────────────────────────────────────────────────────────────────────────
+security:
+  - bearerAuth: []
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Paths
+# ──────────────────────────────────────────────────────────────────────────────
+paths:
+
+  # ── Admin: Create event ──────────────────────────────────────────────────
+  /admin/events:
+    post:
+      summary: Create a new event
+      description: |
+        Creates a new event with status `active`. Requires ADMIN role.
+        Enforces `registration_deadline ≤ date`.
+      tags: [Admin — Events]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventCreate"
+      responses:
+        "201":
+          description: Event created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventResponse"
+        "400":
+          description: |
+            Business rule violation (e.g., event date in the past).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: INVALID_DATE_RANGE
+                  message: "Event date must be in the future"
+                  httpStatus: 400
+        "401":
+          description: Missing or invalid JWT token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: UNAUTHORIZED
+                  message: "Authentication required"
+                  httpStatus: 401
+        "403":
+          description: Authenticated user does not have ADMIN role.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: FORBIDDEN
+                  message: "Admin role required"
+                  httpStatus: 403
+        "422":
+          description: Pydantic validation error (e.g., deadline > date, quota < 1, naive datetime).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: VALIDATION_ERROR
+                  message: "registration_deadline must be on or before the event date"
+                  httpStatus: 422
+
+  # ── Admin: Get, Update, Delete by ID ────────────────────────────────────
+  /admin/events/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: Event ID.
+
+    get:
+      summary: Get event by ID (admin — all statuses)
+      description: |
+        Returns the event regardless of status (active, cancelled, deleted).
+        Requires ADMIN role.
+      tags: [Admin — Events]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Event details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/EventNotFound"
+
+    put:
+      summary: Update event
+      description: |
+        Partial update — all fields optional. Service merges with existing values before re-validating.
+        `quota` update rejected if new value < current participant count (FR-011).
+        Requires ADMIN role.
+      tags: [Admin — Events]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventUpdate"
+      responses:
+        "200":
+          description: Updated event.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventResponse"
+        "400":
+          description: Business rule violation (quota below participants).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: QUOTA_BELOW_PARTICIPANTS
+                  message: "Cannot set quota to 5; event 42 already has 10 participants"
+                  httpStatus: 409
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/EventNotFound"
+        "422":
+          description: Validation error (e.g., deadline > date).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+    delete:
+      summary: Delete event (soft delete)
+      description: |
+        Sets event status to `deleted`. Registered participants are unaffected (FK preserved).
+        Requires ADMIN role. Idempotent — deleting an already-deleted event returns 404.
+      tags: [Admin — Events]
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Event deleted (status set to `deleted`). No response body.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/EventNotFound"
+
+  # ── Public: Browse events ─────────────────────────────────────────────────
+  /events:
+    get:
+      summary: List public events (paginated)
+      description: |
+        Returns future, active events only (`status = active AND date >= now()`).
+        Ordered by `date ASC, title ASC`.
+        Does not require authentication.
+      tags: [Public — Events]
+      security: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number (1-based).
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Number of events per page. Max 100.
+      responses:
+        "200":
+          description: Paginated list of public events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageOfEventResponse"
+              example:
+                items:
+                  - id: 42
+                    title: "Tech Conference 2025"
+                    description: "Annual technology conference."
+                    date: "2025-09-15T02:00:00Z"
+                    registration_deadline: "2025-09-01T16:59:59Z"
+                    quota: 200
+                    status: "active"
+                    created_at: "2025-01-10T08:30:00Z"
+                    registration_closed: false
+                total_items: 47
+                page: 1
+                page_size: 20
+                total_pages: 3
+        "422":
+          description: Invalid pagination parameters (e.g., page < 1, page_size > 100).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+
+  # ── Public: Get event detail ──────────────────────────────────────────────
+  /events/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: Event ID.
+
+    get:
+      summary: Get public event detail
+      description: |
+        Returns a single active, non-deleted event. Cancelled or deleted events
+        return 404 (treated as non-existent from user perspective).
+        Does not require authentication.
+      tags: [Public — Events]
+      security: []
+      responses:
+        "200":
+          description: Event details.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventResponse"
+        "404":
+          $ref: "#/components/responses/EventNotFound"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Reusable responses
+# ──────────────────────────────────────────────────────────────────────────────
+  responses:
+    Unauthorized:
+      description: Missing or invalid JWT token.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: "Authentication required"
+              httpStatus: 401
+
+    Forbidden:
+      description: Authenticated user does not have the required role.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: FORBIDDEN
+              message: "Admin role required"
+              httpStatus: 403
+
+    EventNotFound:
+      description: Event not found (or is deleted/cancelled — treated as non-existent for public).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: EVENT_NOT_FOUND
+              message: "Event 42 not found"
+              httpStatus: 404

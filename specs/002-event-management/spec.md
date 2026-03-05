@@ -5,6 +5,18 @@
 **Status**: Draft  
 **Input**: Deskripsi pengguna: "Feature: Event Management - Admin dapat membuat, mengubah, dan menghapus event publik; user dapat melihat daftar event publik dengan pagination dan hanya untuk event yang belum lewat."
 
+## Clarifications
+
+### Session 2026-03-05
+
+- Q: Bagaimana perlakuan event dengan `registration_deadline` yang sudah lewat tetapi tanggal event belum lewat dalam daftar event publik untuk user biasa? → A: Event tetap ditampilkan di daftar event publik, tetapi harus ditandai jelas bahwa pendaftaran sudah ditutup (misalnya flag `registration_closed` atau status serupa) sehingga user tidak mengira masih bisa mendaftar.
+
+- Q: Skema pagination apa yang HARUS digunakan untuk daftar event publik (parameter request dan bentuk respons dasar)? → A: Pagination menggunakan query parameter `page` (1-based, default 1) dan `page_size` (default wajar, misalnya 20, dengan batas maksimum yang ditentukan secara teknis), dan respons daftar event minimal berbentuk `{ "items": [...], "page": number, "page_size": number, "total_items": number, "total_pages": number }`.
+
+- Q: Urutan default apa yang HARUS digunakan untuk menyusun daftar event publik saat tidak ada permintaan sort khusus dari client? → A: Daftar event publik HARUS diurutkan berdasarkan `date` secara ascending (event terdekat muncul lebih dulu), dan jika ada beberapa event dengan tanggal yang sama, diurutkan lagi berdasarkan `title` secara ascending sebagai tie-breaker yang deterministik.
+
+- Q: Aturan validasi apa yang HARUS diberlakukan antara `registration_deadline` dan `date` saat membuat atau mengubah event? → A: Sistem TIDAK BOLEH menerima event dengan `registration_deadline` yang lebih besar dari `date`; `registration_deadline` HARUS selalu lebih kecil atau sama dengan `date`, dan kombinasi yang melanggar aturan ini HARUS ditolak dengan error yang jelas.
+
 ## User Scenarios & Testing *(wajib)*
 
 ### User Story 1 - Admin membuat event publik baru (Prioritas: P1)
@@ -57,7 +69,7 @@ Seorang user (baik yang terautentikasi maupun pengunjung dengan hak akses lihat)
 ### Edge Cases
 
 - Event dengan tanggal event sudah lewat: event tersebut tetap dapat dikelola oleh admin (misalnya untuk keperluan audit), tetapi tidak boleh muncul lagi di daftar event publik yang dilihat user biasa.
-- Event dengan registration_deadline lewat tetapi tanggal event belum lewat: event tetap tidak boleh menerima peserta baru (diatur oleh fitur pendaftaran), namun masih bisa ditampilkan kepada admin dan, bila diinginkan, tetap dapat terlihat di daftar event publik sebagai event yang akan berlangsung.
+- Event dengan registration_deadline lewat tetapi tanggal event belum lewat: event tetap tidak boleh menerima peserta baru (diatur oleh fitur pendaftaran), tetap dapat ditampilkan kepada admin, dan HARUS tetap terlihat di daftar event publik sebagai event yang akan berlangsung namun dengan indikasi jelas bahwa pendaftaran sudah ditutup.
 - Penghapusan event yang sudah memiliki peserta: setelah event dihapus oleh admin, user tidak boleh lagi melihat event di daftar publik atau mendaftar ke event tersebut, dan sistem harus menjaga agar data peserta tidak mengarah ke event yang sudah tidak tersedia.
 - Permintaan daftar event dengan kombinasi parameter pagination yang ekstrem (misalnya page terlalu besar atau page size sangat besar): sistem harus memberikan respons yang konsisten (misalnya halaman kosong untuk page di luar jangkauan) tanpa menurunkan stabilitas.
 
@@ -74,6 +86,14 @@ Seorang user (baik yang terautentikasi maupun pengunjung dengan hak akses lihat)
 - **FR-007**: Sistem HARUS memastikan bahwa daftar event publik yang ditampilkan kepada user hanya berisi event dengan tanggal event yang belum lewat pada saat permintaan dilakukan.
 - **FR-008**: Sistem HARUS menyediakan tampilan atau representasi detail satu event publik yang dapat diakses oleh semua user selama event belum lewat atau belum dihapus admin.
 
+- **FR-009**: Sistem HARUS menyertakan informasi dalam daftar dan detail event publik apakah pendaftaran masih dibuka atau sudah ditutup berdasarkan `registration_deadline`, sehingga event dengan `registration_deadline` lewat tetapi tanggal event belum lewat tetap muncul di daftar namun jelas ditandai sebagai pendaftaran ditutup.
+
+- **FR-010**: Sistem HARUS menggunakan pola pagination berbasis query parameter `page` (1-based, default 1) dan `page_size` (default wajar, misalnya 20, dengan batas maksimum yang didefinisikan di desain teknis), dan respons daftar event publik minimal memuat `items`, `page`, `page_size`, `total_items`, dan `total_pages` untuk mendukung navigasi yang konsisten.
+
+- **FR-011**: Sistem HARUS menggunakan urutan default daftar event publik berdasarkan `date` secara ascending (event dengan tanggal terdekat muncul lebih dulu), dan jika terdapat event dengan `date` yang sama, hasil diurutkan lagi berdasarkan `title` secara ascending untuk menjamin urutan yang deterministik tanpa pengulangan atau lompatan saat pagination.
+
+- **FR-012**: Sistem HARUS memvalidasi bahwa `registration_deadline` untuk setiap event tidak boleh lebih besar daripada `date` event tersebut. Permintaan pembuatan atau pembaruan event dengan `registration_deadline` yang lebih besar dari `date` HARUS ditolak dengan pesan error yang jelas tanpa mengubah data event yang sudah tersimpan.
+
 ### Non-Functional Requirements
 
 - **NFR-001**: Pengambilan daftar event publik dengan pagination HARUS tetap memberikan pengalaman responsif bagi user (misalnya user merasakan daftar muncul hampir seketika) pada skenario beban normal.
@@ -81,7 +101,7 @@ Seorang user (baik yang terautentikasi maupun pengunjung dengan hak akses lihat)
 
 ### Key Entities *(sertakan jika fitur melibatkan data)*
 
-- **Event**: Merepresentasikan satu kegiatan publik yang dapat dilihat user. Atribut kunci meliputi identifier unik, `title`, `description`, `date`, `registration_deadline`, `quota`, status (aktif/non-aktif/dihapus), dan informasi jumlah peserta saat ini.
+- **Event**: Merepresentasikan satu kegiatan publik yang dapat dilihat user. Atribut kunci meliputi identifier unik, `title`, `description`, `date`, `registration_deadline`, `quota`, status (aktif/non-aktif/dihapus), informasi jumlah peserta saat ini, serta indikasi apakah pendaftaran masih dibuka atau sudah ditutup (misalnya field turunan `registration_open`/`registration_closed`).
 - **Participant/Event Registration**: Merepresentasikan hubungan antara user dan event yang diikutinya. Entitas ini menyimpan referensi ke `Event` dan ke identitas peserta, serta digunakan untuk menghitung jumlah peserta yang sedang terdaftar.
 
 ## Success Criteria *(wajib)*

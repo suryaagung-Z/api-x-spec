@@ -1,251 +1,253 @@
 ---
 
-description: "Template daftar task untuk implementasi fitur"
+description: "Task list template for feature implementation"
 ---
 
 # Tasks: [FEATURE NAME]
 
-**Input**: Dokumen desain dari `/specs/[###-feature-name]/`
-**Prerequisites**: plan.md (wajib), spec.md (wajib untuk user story), research.md, data-model.md, contracts/
+**Input**: Design documents from `/specs/[###-feature-name]/`
+**Prerequisites**: plan.md (required), spec.md (required for user stories), research.md, data-model.md, contracts/
 
-**Tests**: Contoh di bawah menyertakan task untuk test. Test adalah WAJIB dan setiap task HARUS mencakup test yang cukup untuk mencapai dan menjaga 100% coverage untuk seluruh kode produksi yang ditambahkan atau diubah oleh fitur ini.
+**Tests**: The examples below include test tasks. Tests are REQUIRED for
+each user story that introduces or changes behavior, unless the feature
+specification explicitly marks that story as non-code or exploratory only.
 
-**Organisasi**: Task dikelompokkan per user story agar implementasi dan pengujian setiap story dapat dilakukan secara mandiri.
+**Organization**: Tasks are grouped by user story to enable independent implementation and testing of each story.
 
-## Format: `[ID] [P?] [Story] Deskripsi`
+## Format: `[ID] [P?] [Story] Description`
 
-- **[P]**: Dapat dijalankan paralel (file berbeda, tanpa dependensi)
-- **[Story]**: User story mana yang menjadi konteks task ini (misalnya US1, US2, US3)
-- Sertakan path file yang tepat di deskripsi
+- **[P]**: Can run in parallel (different files, no dependencies)
+- **[Story]**: Which user story this task belongs to (e.g., US1, US2, US3)
+- Include exact file paths in descriptions
 
-## Konvensi Path
+## Path Conventions
 
-- **Single project**: `src/`, `tests/` di root repository
+- **Single project**: `src/`, `tests/` at repository root
 - **Web app**: `backend/src/`, `frontend/src/`
-- **Mobile**: `api/src/`, `ios/src/` atau `android/src/`
-- Path di bawah mengasumsikan single project - sesuaikan dengan struktur di plan.md
+- **Mobile**: `api/src/`, `ios/src/` or `android/src/`
+- Paths shown below assume single project - adjust based on plan.md structure
 
 <!-- 
   ============================================================================
-  PENTING: Task di bawah ini hanyalah CONTOH untuk tujuan ilustrasi.
+  IMPORTANT: The tasks below are SAMPLE TASKS for illustration purposes only.
   
-  Perintah /speckit.tasks HARUS mengganti contoh ini dengan task nyata berdasarkan:
-  - User story dari spec.md (beserta prioritasnya P1, P2, P3...)
-  - Requirement fitur dari plan.md
-  - Entitas dari data-model.md
-  - Endpoint dari contracts/
+  The /speckit.tasks command MUST replace these with actual tasks based on:
+  - User stories from spec.md (with their priorities P1, P2, P3...)
+  - Feature requirements from plan.md
+  - Entities from data-model.md
+  - Endpoints from contracts/
   
-  Task HARUS diorganisasi per user story sehingga setiap story dapat:
-  - Diimplementasikan secara mandiri
-  - Diuji secara mandiri
-  - Dikirim sebagai inkremen MVP
+  Tasks MUST be organized by user story so each story can be:
+  - Implemented independently
+  - Tested independently
+  - Delivered as an MVP increment
   
-  JANGAN menyimpan contoh task ini di file tasks.md yang dihasilkan.
+  DO NOT keep these sample tasks in the generated tasks.md file.
   ============================================================================
 -->
 
-## Phase 1: Setup (Infrastruktur Bersama)
+## Phase 1: Setup (Shared Infrastructure)
 
-**Tujuan**: Inisialisasi proyek dan struktur dasar
+**Purpose**: Project initialization and basic structure
 
-- [ ] T001 Buat struktur proyek sesuai rencana implementasi
-- [ ] T002 Inisialisasi proyek [bahasa] dengan dependency [framework]
-- [ ] T003 [P] Konfigurasi tool linting dan formatting
-
----
-
-## Phase 2: Fondasi (Prerequisite yang Memblokir)
-
-**Tujuan**: Infrastruktur inti yang HARUS selesai sebelum user story APA PUN dapat diimplementasikan
-
-**⚠️ KRITIS**: Pekerjaan user story tidak boleh dimulai sebelum fase ini selesai
-
-Contoh task fondasi (sesuaikan dengan proyek Anda):
-
-- [ ] T004 Setup schema database dan framework migrasi
-- [ ] T005 [P] Implementasikan framework authentication/authorization
-- [ ] T006 [P] Setup routing API dan struktur middleware
-- [ ] T007 Buat model/entitas dasar yang digunakan semua story
-- [ ] T008 Konfigurasi infrastruktur error handling dan logging
-- [ ] T009 Setup manajemen konfigurasi environment
-
-**Checkpoint**: Fondasi siap - implementasi user story sekarang dapat dimulai secara paralel
+- [ ] T001 Create project structure per implementation plan
+- [ ] T002 Initialize [language] project with [framework] dependencies
+- [ ] T003 [P] Configure linting and formatting tools
 
 ---
 
-## Phase 3: User Story 1 - [Judul] (Prioritas: P1) 🎯 MVP
+## Phase 2: Foundational (Blocking Prerequisites)
 
-**Goal**: [Deskripsi singkat apa yang dikirimkan oleh story ini]
+**Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
 
-**Independent Test**: [Bagaimana memverifikasi story ini bekerja sendiri]
+**⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-### Test untuk User Story 1 (WAJIB) ⚠️
+Examples of foundational tasks (adjust based on your project):
 
-> **CATATAN: Tulis test ini TERLEBIH DAHULU, pastikan mereka GAGAL sebelum implementasi**
+- [ ] T004 Setup database schema and migrations framework
+- [ ] T005 [P] Implement authentication/authorization framework
+- [ ] T006 [P] Setup API routing and middleware structure
+- [ ] T007 Create base models/entities that all stories depend on
+- [ ] T008 Configure error handling and logging infrastructure
+- [ ] T009 Setup environment configuration management
 
-- [ ] T010 [P] [US1] Contract test untuk [endpoint] di tests/contract/test_[name].py
-- [ ] T011 [P] [US1] Integration test untuk [user journey] di tests/integration/test_[name].py
-
-### Implementasi untuk User Story 1
-
-- [ ] T012 [P] [US1] Buat model [Entity1] di src/models/[entity1].py
-- [ ] T013 [P] [US1] Buat model [Entity2] di src/models/[entity2].py
-- [ ] T014 [US1] Implementasikan [Service] di src/services/[service].py (bergantung pada T012, T013)
-- [ ] T015 [US1] Implementasikan [endpoint/feature] di src/[location]/[file].py
-- [ ] T016 [US1] Tambahkan validasi dan error handling
-- [ ] T017 [US1] Tambahkan logging untuk operasi user story 1
-
-**Checkpoint**: Pada titik ini, User Story 1 seharusnya sudah fungsional penuh dan dapat diuji secara mandiri
+**Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
 ---
 
-## Phase 4: User Story 2 - [Judul] (Prioritas: P2)
+## Phase 3: User Story 1 - [Title] (Priority: P1) 🎯 MVP
 
-**Goal**: [Deskripsi singkat apa yang dikirimkan oleh story ini]
+**Goal**: [Brief description of what this story delivers]
 
-**Independent Test**: [Bagaimana memverifikasi story ini bekerja sendiri]
+**Independent Test**: [How to verify this story works on its own]
 
-### Test untuk User Story 2 (WAJIB) ⚠️
+### Tests for User Story 1 (REQUIRED) ⚠️
 
-- [ ] T018 [P] [US2] Contract test untuk [endpoint] di tests/contract/test_[name].py
-- [ ] T019 [P] [US2] Integration test untuk [user journey] di tests/integration/test_[name].py
+> **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
-### Implementasi untuk User Story 2
+- [ ] T010 [P] [US1] Contract test for [endpoint] in tests/contract/test_[name].py
+- [ ] T011 [P] [US1] Integration test for [user journey] in tests/integration/test_[name].py
 
-- [ ] T020 [P] [US2] Buat model [Entity] di src/models/[entity].py
-- [ ] T021 [US2] Implementasikan [Service] di src/services/[service].py
-- [ ] T022 [US2] Implementasikan [endpoint/feature] di src/[location]/[file].py
-- [ ] T023 [US2] Integrasi dengan komponen User Story 1 (jika diperlukan)
+### Implementation for User Story 1
 
-**Checkpoint**: Pada titik ini, User Story 1 DAN 2 seharusnya keduanya bekerja secara mandiri
+- [ ] T012 [P] [US1] Create [Entity1] model in src/models/[entity1].py
+- [ ] T013 [P] [US1] Create [Entity2] model in src/models/[entity2].py
+- [ ] T014 [US1] Implement [Service] in src/services/[service].py (depends on T012, T013)
+- [ ] T015 [US1] Implement [endpoint/feature] in src/[location]/[file].py
+- [ ] T016 [US1] Add validation and error handling
+- [ ] T017 [US1] Add logging for user story 1 operations
 
----
-
-## Phase 5: User Story 3 - [Judul] (Prioritas: P3)
-
-**Goal**: [Deskripsi singkat apa yang dikirimkan oleh story ini]
-
-**Independent Test**: [Bagaimana memverifikasi story ini bekerja sendiri]
-
-### Test untuk User Story 3 (WAJIB) ⚠️
-
-- [ ] T024 [P] [US3] Contract test untuk [endpoint] di tests/contract/test_[name].py
-- [ ] T025 [P] [US3] Integration test untuk [user journey] di tests/integration/test_[name].py
-
-### Implementasi untuk User Story 3
-
-- [ ] T026 [P] [US3] Buat model [Entity] di src/models/[entity].py
-- [ ] T027 [US3] Implementasikan [Service] di src/services/[service].py
-- [ ] T028 [US3] Implementasikan [endpoint/feature] di src/[location]/[file].py
-
-**Checkpoint**: Semua user story sekarang seharusnya fungsional secara mandiri
+**Checkpoint**: At this point, User Story 1 should be fully functional and testable independently
 
 ---
 
-[Tambahkan fase user story lain bila perlu, mengikuti pola yang sama]
+## Phase 4: User Story 2 - [Title] (Priority: P2)
+
+**Goal**: [Brief description of what this story delivers]
+
+**Independent Test**: [How to verify this story works on its own]
+
+### Tests for User Story 2 (REQUIRED) ⚠️
+
+- [ ] T018 [P] [US2] Contract test for [endpoint] in tests/contract/test_[name].py
+- [ ] T019 [P] [US2] Integration test for [user journey] in tests/integration/test_[name].py
+
+### Implementation for User Story 2
+
+- [ ] T020 [P] [US2] Create [Entity] model in src/models/[entity].py
+- [ ] T021 [US2] Implement [Service] in src/services/[service].py
+- [ ] T022 [US2] Implement [endpoint/feature] in src/[location]/[file].py
+- [ ] T023 [US2] Integrate with User Story 1 components (if needed)
+
+**Checkpoint**: At this point, User Stories 1 AND 2 should both work independently
+
+---
+
+## Phase 5: User Story 3 - [Title] (Priority: P3)
+
+**Goal**: [Brief description of what this story delivers]
+
+**Independent Test**: [How to verify this story works on its own]
+
+### Tests for User Story 3 (REQUIRED) ⚠️
+
+- [ ] T024 [P] [US3] Contract test for [endpoint] in tests/contract/test_[name].py
+- [ ] T025 [P] [US3] Integration test for [user journey] in tests/integration/test_[name].py
+
+### Implementation for User Story 3
+
+- [ ] T026 [P] [US3] Create [Entity] model in src/models/[entity].py
+- [ ] T027 [US3] Implement [Service] in src/services/[service].py
+- [ ] T028 [US3] Implement [endpoint/feature] in src/[location]/[file].py
+
+**Checkpoint**: All user stories should now be independently functional
+
+---
+
+[Add more user story phases as needed, following the same pattern]
 
 ---
 
 ## Phase N: Polish & Cross-Cutting Concerns
 
-**Tujuan**: Peningkatan yang memengaruhi banyak user story
+**Purpose**: Improvements that affect multiple user stories
 
-- [ ] TXXX [P] Pembaruan dokumentasi di docs/
-- [ ] TXXX Code cleanup dan refactoring
-- [ ] TXXX Optimasi performa lintas semua story
-- [ ] TXXX [P] Tambahan unit test (jika diminta) di tests/unit/
-- [ ] TXXX Penguatan aspek keamanan
-- [ ] TXXX Jalankan validasi quickstart.md
-
----
-
-## Dependensi & Urutan Eksekusi
-
-### Dependensi Antar Fase
-
-- **Setup (Phase 1)**: Tanpa dependensi - dapat dimulai segera
-- **Fondasi (Phase 2)**: Bergantung pada selesainya Setup - MEMBLOKIR semua user story
-- **User Story (Phase 3+)**: Semua bergantung pada selesainya fase Fondasi
-  - User story kemudian dapat berjalan paralel (jika resource tim cukup)
-  - Atau berurutan sesuai prioritas (P1 → P2 → P3)
-- **Polish (Fase Akhir)**: Bergantung pada selesainya semua user story yang diinginkan
-
-### Dependensi User Story
-
-- **User Story 1 (P1)**: Dapat dimulai setelah Fondasi (Phase 2) - Tanpa dependensi pada story lain
-- **User Story 2 (P2)**: Dapat dimulai setelah Fondasi (Phase 2) - Dapat berintegrasi dengan US1 namun tetap harus dapat diuji secara mandiri
-- **User Story 3 (P3)**: Dapat dimulai setelah Fondasi (Phase 2) - Dapat berintegrasi dengan US1/US2 namun tetap harus dapat diuji secara mandiri
-
-### Di Dalam Setiap User Story
-
-- Test HARUS ditulis dan GAGAL sebelum implementasi
-- Model dibuat sebelum service
-- Service dibuat sebelum endpoint
-- Implementasi inti sebelum integrasi
-- Story dinyatakan selesai sebelum pindah ke prioritas berikutnya
-
-### Peluang Paralel
-
-- Semua task Setup yang ditandai [P] dapat dijalankan paralel
-- Semua task Fondasi yang ditandai [P] dapat dijalankan paralel (di dalam Phase 2)
-- Setelah fase Fondasi selesai, semua user story dapat dimulai paralel (jika kapasitas tim memungkinkan)
-- Semua test untuk sebuah user story yang ditandai [P] dapat dijalankan paralel
-- Model dalam sebuah story yang ditandai [P] dapat dikerjakan paralel
-- User story yang berbeda dapat dikerjakan paralel oleh anggota tim yang berbeda
+- [ ] TXXX [P] Documentation updates in docs/
+- [ ] TXXX Code cleanup and refactoring
+- [ ] TXXX Performance optimization across all stories
+- [ ] TXXX [P] Additional unit tests (if requested) in tests/unit/
+- [ ] TXXX Security hardening
+- [ ] TXXX Run quickstart.md validation
 
 ---
 
-## Contoh Paralel: User Story 1
+## Dependencies & Execution Order
+
+### Phase Dependencies
+
+- **Setup (Phase 1)**: No dependencies - can start immediately
+- **Foundational (Phase 2)**: Depends on Setup completion - BLOCKS all user stories
+- **User Stories (Phase 3+)**: All depend on Foundational phase completion
+  - User stories can then proceed in parallel (if staffed)
+  - Or sequentially in priority order (P1 → P2 → P3)
+- **Polish (Final Phase)**: Depends on all desired user stories being complete
+
+### User Story Dependencies
+
+- **User Story 1 (P1)**: Can start after Foundational (Phase 2) - No dependencies on other stories
+- **User Story 2 (P2)**: Can start after Foundational (Phase 2) - May integrate with US1 but should be independently testable
+- **User Story 3 (P3)**: Can start after Foundational (Phase 2) - May integrate with US1/US2 but should be independently testable
+
+### Within Each User Story
+
+- Tests MUST be written and FAIL before implementation
+- Models before services
+- Services before endpoints
+- Core implementation before integration
+- Story complete before moving to next priority
+
+### Parallel Opportunities
+
+- All Setup tasks marked [P] can run in parallel
+- All Foundational tasks marked [P] can run in parallel (within Phase 2)
+- Once Foundational phase completes, all user stories can start in parallel (if team capacity allows)
+- All tests for a user story marked [P] can run in parallel
+- Models within a story marked [P] can run in parallel
+- Different user stories can be worked on in parallel by different team members
+
+---
+
+## Parallel Example: User Story 1
 
 ```bash
-# Jalankan semua test untuk User Story 1 bersama-sama (jika test diminta):
-Task: "Contract test untuk [endpoint] di tests/contract/test_[name].py"
-Task: "Integration test untuk [user journey] di tests/integration/test_[name].py"
+# Launch all tests for User Story 1 together (if tests requested):
+Task: "Contract test for [endpoint] in tests/contract/test_[name].py"
+Task: "Integration test for [user journey] in tests/integration/test_[name].py"
 
-# Jalankan semua model untuk User Story 1 bersama-sama:
-Task: "Buat model [Entity1] di src/models/[entity1].py"
-Task: "Buat model [Entity2] di src/models/[entity2].py"
+# Launch all models for User Story 1 together:
+Task: "Create [Entity1] model in src/models/[entity1].py"
+Task: "Create [Entity2] model in src/models/[entity2].py"
 ```
 
 ---
 
-## Strategi Implementasi
+## Implementation Strategy
 
-### MVP First (Hanya User Story 1)
+### MVP First (User Story 1 Only)
 
-1. Selesaikan Phase 1: Setup
-2. Selesaikan Phase 2: Fondasi (KRITIS - memblokir semua story)
-3. Selesaikan Phase 3: User Story 1
-4. **BERHENTI dan VALIDASI**: Uji User Story 1 secara mandiri
-5. Deploy/demo bila sudah siap
+1. Complete Phase 1: Setup
+2. Complete Phase 2: Foundational (CRITICAL - blocks all stories)
+3. Complete Phase 3: User Story 1
+4. **STOP and VALIDATE**: Test User Story 1 independently
+5. Deploy/demo if ready
 
-### Delivery Bertahap (Incremental Delivery)
+### Incremental Delivery
 
-1. Selesaikan Setup + Fondasi → Fondasi siap
-2. Tambahkan User Story 1 → Uji secara mandiri → Deploy/Demo (MVP!)
-3. Tambahkan User Story 2 → Uji secara mandiri → Deploy/Demo
-4. Tambahkan User Story 3 → Uji secara mandiri → Deploy/Demo
-5. Setiap story menambah nilai tanpa merusak story sebelumnya
+1. Complete Setup + Foundational → Foundation ready
+2. Add User Story 1 → Test independently → Deploy/Demo (MVP!)
+3. Add User Story 2 → Test independently → Deploy/Demo
+4. Add User Story 3 → Test independently → Deploy/Demo
+5. Each story adds value without breaking previous stories
 
-### Strategi Tim Paralel
+### Parallel Team Strategy
 
-Jika ada beberapa developer:
+With multiple developers:
 
-1. Tim menyelesaikan Setup + Fondasi bersama-sama
-2. Setelah Fondasi selesai:
+1. Team completes Setup + Foundational together
+2. Once Foundational is done:
    - Developer A: User Story 1
    - Developer B: User Story 2
    - Developer C: User Story 3
-3. Setiap story selesai dan terintegrasi secara mandiri
+3. Stories complete and integrate independently
 
 ---
 
-## Catatan
+## Notes
 
-- Task bertanda [P] = file berbeda, tanpa dependensi
-- Label [Story] memetakan task ke user story tertentu untuk keterlacakan
-- Setiap user story sebaiknya dapat diselesaikan dan diuji secara mandiri
-- Pastikan test gagal sebelum implementasi
-- Lakukan commit setelah setiap task atau grup logis
-- Berhenti di setiap checkpoint untuk memvalidasi story secara mandiri
-- Hindari: task yang terlalu umum, konflik di file yang sama, dependensi lintas story yang merusak kemandirian
+- [P] tasks = different files, no dependencies
+- [Story] label maps task to specific user story for traceability
+- Each user story should be independently completable and testable
+- Verify tests fail before implementing
+- Commit after each task or logical group
+- Stop at any checkpoint to validate story independently
+- Avoid: vague tasks, same file conflicts, cross-story dependencies that break independence

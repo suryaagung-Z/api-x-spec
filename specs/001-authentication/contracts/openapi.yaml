@@ -1,0 +1,302 @@
+openapi: "3.1.0"
+
+info:
+  title: "API-X Authentication"
+  description: >
+    Authentication and Authorization endpoints for API-X.
+    Feature branch: 001-authentication.
+    All error responses use the shared error envelope defined in error-envelope.md.
+  version: "1.0.0"
+
+servers:
+  - url: "http://localhost:8000"
+    description: "Local development"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        JWT access token obtained from POST /auth/login.
+        Transmitted as: `Authorization: Bearer <token>`
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          example: "Alice Admin"
+        email:
+          type: string
+          format: email
+          example: "alice@example.com"
+        password:
+          type: string
+          minLength: 8
+          maxLength: 72
+          description: "Plain-text password (≥8 chars, ≤72 chars). Stored as bcrypt hash."
+          example: "s3cur3P@ssword!"
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "alice@example.com"
+        password:
+          type: string
+          minLength: 1
+          example: "s3cur3P@ssword!"
+
+    TokenResponse:
+      type: object
+      required: [access_token, token_type]
+      properties:
+        access_token:
+          type: string
+          description: "Signed HS256 JWT — carries sub, role, iat, exp."
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        token_type:
+          type: string
+          enum: [bearer]
+          example: "bearer"
+
+    UserRead:
+      type: object
+      required: [id, name, email, role, is_active, created_at]
+      properties:
+        id:
+          type: string
+          description: "Unique user identifier (UUID/ULID); matches JWT `sub` claim."
+          example: "01HXZ1ABC2DEF3GHI4JKL"
+        name:
+          type: string
+          example: "Alice Admin"
+        email:
+          type: string
+          format: email
+          example: "alice@example.com"
+        role:
+          type: string
+          enum: [user, admin]
+          example: "user"
+        is_active:
+          type: boolean
+          example: true
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-03-05T10:00:00Z"
+
+    ErrorDetail:
+      type: object
+      required: [code, message, httpStatus]
+      properties:
+        code:
+          type: string
+          description: "Machine-readable error code."
+          example: "EMAIL_ALREADY_EXISTS"
+        message:
+          type: string
+          description: "Human-readable error message."
+          example: "An account with this email already exists."
+        httpStatus:
+          type: integer
+          description: "HTTP status code mirrored in the body."
+          example: 409
+
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorDetail"
+
+  responses:
+    Unauthorized:
+      description: "Missing, malformed, tampered, or expired JWT."
+      headers:
+        WWW-Authenticate:
+          schema:
+            type: string
+            example: "Bearer"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: "UNAUTHORIZED"
+              message: "Could not validate credentials."
+              httpStatus: 401
+
+    Forbidden:
+      description: "Valid JWT but insufficient role for this endpoint."
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: "FORBIDDEN"
+              message: "Insufficient permissions."
+              httpStatus: 403
+
+    ValidationError:
+      description: "Request body failed schema validation (Pydantic)."
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: "VALIDATION_ERROR"
+              message: "password must be at least 8 characters."
+              httpStatus: 422
+
+paths:
+  /auth/register:
+    post:
+      operationId: register
+      summary: "Register a new user account"
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+            examples:
+              valid:
+                summary: "Standard registration"
+                value:
+                  name: "Alice Admin"
+                  email: "alice@example.com"
+                  password: "s3cur3P@ssword!"
+      responses:
+        "201":
+          description: "Account created successfully."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserRead"
+              example:
+                id: "01HXZ1ABC2DEF3GHI4JKL"
+                name: "Alice Admin"
+                email: "alice@example.com"
+                role: "user"
+                is_active: true
+                created_at: "2026-03-05T10:00:00Z"
+        "409":
+          description: "Email already registered (FR-002)."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "EMAIL_ALREADY_EXISTS"
+                  message: "An account with this email already exists."
+                  httpStatus: 409
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /auth/login:
+    post:
+      operationId: login
+      summary: "Authenticate and receive a JWT access token"
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+            examples:
+              valid:
+                summary: "Correct credentials"
+                value:
+                  email: "alice@example.com"
+                  password: "s3cur3P@ssword!"
+      responses:
+        "200":
+          description: "Login successful — JWT access token returned (FR-005)."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+              example:
+                access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                token_type: "bearer"
+        "401":
+          description: >
+            Wrong email or password (FR-004).
+            Error message MUST NOT reveal whether the email or password was wrong.
+          headers:
+            WWW-Authenticate:
+              schema:
+                type: string
+                example: "Bearer"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "Invalid email or password."
+                  httpStatus: 401
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /auth/me:
+    get:
+      operationId: getProfile
+      summary: "Get the authenticated user's profile"
+      description: >
+        Example general-purpose protected endpoint. Requires a valid JWT with
+        any role (`user` or `admin`).
+      tags: [auth]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: "Authenticated user's profile."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserRead"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /admin/users:
+    get:
+      operationId: listUsers
+      summary: "List all registered users (admin only)"
+      description: >
+        Example admin-only endpoint (FR-008). Requires a valid JWT with role `admin`.
+        Requests with a valid `user`-role JWT MUST be rejected with 403 Forbidden.
+      tags: [admin]
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: "List of all users."
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserRead"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"

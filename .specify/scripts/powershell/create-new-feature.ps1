@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# Membuat feature baru
+# Create a new feature
 [CmdletBinding()]
 param(
     [switch]$Json,
@@ -11,39 +11,39 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 
-# Tampilkan bantuan jika diminta
+# Show help if requested
 if ($Help) {
-    Write-Host "Penggunaan: ./create-new-feature.ps1 [-Json] [-ShortName <name>] [-Number N] <deskripsi fitur>"
+    Write-Host "Usage: ./create-new-feature.ps1 [-Json] [-ShortName <name>] [-Number N] <feature description>"
     Write-Host ""
-    Write-Host "Opsi:"
-    Write-Host "  -Json               Output dalam format JSON"
-    Write-Host "  -ShortName <name>   Berikan short name kustom (2-4 kata) untuk branch"
-    Write-Host "  -Number N           Tentukan nomor branch secara manual (mengganti deteksi otomatis)"
-    Write-Host "  -Help               Menampilkan pesan bantuan ini"
+    Write-Host "Options:"
+    Write-Host "  -Json               Output in JSON format"
+    Write-Host "  -ShortName <name>   Provide a custom short name (2-4 words) for the branch"
+    Write-Host "  -Number N           Specify branch number manually (overrides auto-detection)"
+    Write-Host "  -Help               Show this help message"
     Write-Host ""
-    Write-Host "Contoh:"
-    Write-Host "  ./create-new-feature.ps1 'Tambah sistem autentikasi pengguna' -ShortName 'user-auth'"
-    Write-Host "  ./create-new-feature.ps1 'Implementasi integrasi OAuth2 untuk API'"
+    Write-Host "Examples:"
+    Write-Host "  ./create-new-feature.ps1 'Add user authentication system' -ShortName 'user-auth'"
+    Write-Host "  ./create-new-feature.ps1 'Implement OAuth2 integration for API'"
     exit 0
 }
 
-# Pastikan deskripsi fitur diberikan
+# Check if feature description provided
 if (-not $FeatureDescription -or $FeatureDescription.Count -eq 0) {
-    Write-Error "Penggunaan: ./create-new-feature.ps1 [-Json] [-ShortName <name>] <deskripsi fitur>"
+    Write-Error "Usage: ./create-new-feature.ps1 [-Json] [-ShortName <name>] <feature description>"
     exit 1
 }
 
 $featureDesc = ($FeatureDescription -join ' ').Trim()
 
-# Validasi bahwa deskripsi tidak kosong setelah di-trim (misalnya hanya spasi)
+# Validate description is not empty after trimming (e.g., user passed only whitespace)
 if ([string]::IsNullOrWhiteSpace($featureDesc)) {
-    Write-Error "Error: Deskripsi fitur tidak boleh kosong atau hanya berisi spasi"
+    Write-Error "Error: Feature description cannot be empty or contain only whitespace"
     exit 1
 }
 
-# Menentukan repository root. Utamakan informasi dari git bila tersedia, namun
-# fallback ke pencarian penanda repository sehingga workflow tetap berfungsi
-# pada repository yang di-inisialisasi dengan --no-git.
+# Resolve repository root. Prefer git information when available, but fall back
+# to searching for repository markers so the workflow still functions in repositories that
+# were initialized with --no-git.
 function Find-RepositoryRoot {
     param(
         [string]$StartDir,
@@ -58,7 +58,7 @@ function Find-RepositoryRoot {
         }
         $parent = Split-Path $current -Parent
         if ($parent -eq $current) {
-            # Mencapai root filesystem tanpa menemukan penanda
+            # Reached filesystem root without finding markers
             return $null
         }
         $current = $parent
@@ -99,8 +99,8 @@ function Get-HighestNumberFromBranches {
             }
         }
     } catch {
-        # Jika perintah git gagal, kembalikan 0
-        Write-Verbose "Tidak dapat memeriksa branch Git: $_"
+        # If git command fails, return 0
+        Write-Verbose "Could not check Git branches: $_"
     }
     return $highest
 }
@@ -110,23 +110,23 @@ function Get-NextBranchNumber {
         [string]$SpecsDir
     )
 
-    # Fetch semua remote untuk mendapatkan informasi branch terbaru (abaikan error jika tidak ada remote)
+    # Fetch all remotes to get latest branch info (suppress errors if no remotes)
     try {
         git fetch --all --prune 2>$null | Out-Null
     } catch {
         # Ignore fetch errors
     }
 
-    # Ambil nomor tertinggi dari SEMUA branch (bukan hanya yang cocok dengan short name)
+    # Get highest number from ALL branches (not just matching short name)
     $highestBranch = Get-HighestNumberFromBranches
 
-    # Ambil nomor tertinggi dari SEMUA spec (bukan hanya yang cocok dengan short name)
+    # Get highest number from ALL specs (not just matching short name)
     $highestSpec = Get-HighestNumberFromSpecs -SpecsDir $SpecsDir
 
-    # Ambil nilai maksimum dari keduanya
+    # Take the maximum of both
     $maxNum = [Math]::Max($highestBranch, $highestSpec)
 
-    # Kembalikan nomor berikutnya
+    # Return next number
     return $maxNum + 1
 }
 
@@ -158,11 +158,11 @@ Set-Location $repoRoot
 $specsDir = Join-Path $repoRoot 'specs'
 New-Item -ItemType Directory -Path $specsDir -Force | Out-Null
 
-# Fungsi untuk menghasilkan nama branch dengan filter stop word dan panjang
+# Function to generate branch name with stop word filtering and length filtering
 function Get-BranchName {
     param([string]$Description)
     
-    # Stop word umum yang akan diabaikan
+    # Common stop words to filter out
     $stopWords = @(
         'i', 'a', 'an', 'the', 'to', 'for', 'of', 'in', 'on', 'at', 'by', 'with', 'from',
         'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had',
@@ -171,17 +171,17 @@ function Get-BranchName {
         'want', 'need', 'add', 'get', 'set'
     )
     
-    # Konversi ke huruf kecil dan ekstrak kata (hanya alfanumerik)
+    # Convert to lowercase and extract words (alphanumeric only)
     $cleanName = $Description.ToLower() -replace '[^a-z0-9\s]', ' '
     $words = $cleanName -split '\s+' | Where-Object { $_ }
     
-    # Filter kata: buang stop word dan kata dengan panjang < 3 karakter (kecuali akronim uppercase di teks asli)
+    # Filter words: remove stop words and words shorter than 3 chars (unless they're uppercase acronyms in original)
     $meaningfulWords = @()
     foreach ($word in $words) {
-        # Lewati stop word
+        # Skip stop words
         if ($stopWords -contains $word) { continue }
         
-        # Simpan kata dengan panjang >= 3 ATAU muncul sebagai uppercase di teks asli (kemungkinan akronim)
+        # Keep words that are length >= 3 OR appear as uppercase in original (likely acronyms)
         if ($word.Length -ge 3) {
             $meaningfulWords += $word
         } elseif ($Description -match "\b$($word.ToUpper())\b") {
@@ -190,25 +190,25 @@ function Get-BranchName {
         }
     }
     
-    # Jika ada kata bermakna, gunakan 3-4 pertama
+    # If we have meaningful words, use first 3-4 of them
     if ($meaningfulWords.Count -gt 0) {
         $maxWords = if ($meaningfulWords.Count -eq 4) { 4 } else { 3 }
         $result = ($meaningfulWords | Select-Object -First $maxWords) -join '-'
         return $result
     } else {
-        # Fallback ke logika asli jika tidak ada kata bermakna
+        # Fallback to original logic if no meaningful words found
         $result = ConvertTo-CleanBranchName -Name $Description
         $fallbackWords = ($result -split '-') | Where-Object { $_ } | Select-Object -First 3
         return [string]::Join('-', $fallbackWords)
     }
 }
 
-# Generate nama branch
+# Generate branch name
 if ($ShortName) {
-    # Gunakan short name yang diberikan, hanya dibersihkan
+    # Use provided short name, just clean it up
     $branchSuffix = ConvertTo-CleanBranchName -Name $ShortName
 } else {
-    # Generate dari deskripsi dengan filter pintar
+    # Generate from description with smart filtering
     $branchSuffix = Get-BranchName -Description $featureDesc
 }
 
@@ -226,25 +226,25 @@ if ($Number -eq 0) {
 $featureNum = ('{0:000}' -f $Number)
 $branchName = "$featureNum-$branchSuffix"
 
-# GitHub menerapkan batas 244 byte untuk nama branch
-# Validasi dan potong bila perlu
+# GitHub enforces a 244-byte limit on branch names
+# Validate and truncate if necessary
 $maxBranchLength = 244
 if ($branchName.Length -gt $maxBranchLength) {
-    # Hitung seberapa banyak suffix perlu dipotong
-    # Mempertimbangkan: nomor fitur (3) + tanda hubung (1) = 4 karakter
+    # Calculate how much we need to trim from suffix
+    # Account for: feature number (3) + hyphen (1) = 4 chars
     $maxSuffixLength = $maxBranchLength - 4
     
-    # Potong suffix
+    # Truncate suffix
     $truncatedSuffix = $branchSuffix.Substring(0, [Math]::Min($branchSuffix.Length, $maxSuffixLength))
-    # Hapus tanda hubung di akhir jika muncul karena pemotongan
+    # Remove trailing hyphen if truncation created one
     $truncatedSuffix = $truncatedSuffix -replace '-$', ''
     
     $originalBranchName = $branchName
     $branchName = "$featureNum-$truncatedSuffix"
     
-    Write-Warning "[specify] Nama branch melebihi batas 244 byte GitHub"
-    Write-Warning "[specify] Asli: $originalBranchName ($($originalBranchName.Length) bytes)"
-    Write-Warning "[specify] Dipotong menjadi: $branchName ($($branchName.Length) bytes)"
+    Write-Warning "[specify] Branch name exceeded GitHub's 244-byte limit"
+    Write-Warning "[specify] Original: $originalBranchName ($($originalBranchName.Length) bytes)"
+    Write-Warning "[specify] Truncated to: $branchName ($($branchName.Length) bytes)"
 }
 
 if ($hasGit) {
@@ -259,18 +259,18 @@ if ($hasGit) {
     }
 
     if (-not $branchCreated) {
-        # Cek apakah branch sudah ada
+        # Check if branch already exists
         $existingBranch = git branch --list $branchName 2>$null
         if ($existingBranch) {
-            Write-Error "Error: Branch '$branchName' sudah ada. Gunakan nama fitur lain atau tentukan nomor berbeda dengan -Number."
+            Write-Error "Error: Branch '$branchName' already exists. Please use a different feature name or specify a different number with -Number."
             exit 1
         } else {
-            Write-Error "Error: Gagal membuat git branch '$branchName'. Periksa konfigurasi git Anda dan coba lagi."
+            Write-Error "Error: Failed to create git branch '$branchName'. Please check your git configuration and try again."
             exit 1
         }
     }
 } else {
-    Write-Warning "[specify] Peringatan: Repository Git tidak terdeteksi; pembuatan branch $branchName dilewati"
+    Write-Warning "[specify] Warning: Git repository not detected; skipped branch creation for $branchName"
 }
 
 $featureDir = Join-Path $specsDir $branchName
@@ -300,6 +300,5 @@ if ($Json) {
     Write-Output "SPEC_FILE: $specFile"
     Write-Output "FEATURE_NUM: $featureNum"
     Write-Output "HAS_GIT: $hasGit"
-    Write-Output "Variabel environment SPECIFY_FEATURE di-set ke: $branchName"
+    Write-Output "SPECIFY_FEATURE environment variable set to: $branchName"
 }
-

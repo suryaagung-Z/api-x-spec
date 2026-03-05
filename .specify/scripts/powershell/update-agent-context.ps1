@@ -1,27 +1,27 @@
 #!/usr/bin/env pwsh
 <#!
 .SYNOPSIS
-Memperbarui file konteks agent dengan informasi dari plan.md (versi PowerShell)
+Update agent context files with information from plan.md (PowerShell version)
 
 .DESCRIPTION
-Mencerminkan perilaku scripts/bash/update-agent-context.sh:
- 1. Validasi environment
- 2. Ekstraksi data dari plan
- 3. Manajemen file agent (membuat dari template atau memperbarui yang sudah ada)
- 4. Generasi konten (technology stack, perubahan terbaru, timestamp)
- 5. Dukungan multi-agent (claude, gemini, copilot, cursor-agent, qwen, opencode, codex, windsurf, kilocode, auggie, roo, codebuddy, amp, shai, kiro-cli, agy, bob, qodercli)
+Mirrors the behavior of scripts/bash/update-agent-context.sh:
+ 1. Environment Validation
+ 2. Plan Data Extraction
+ 3. Agent File Management (create from template or update existing)
+ 4. Content Generation (technology stack, recent changes, timestamp)
+ 5. Multi-Agent Support (claude, gemini, copilot, cursor-agent, qwen, opencode, codex, windsurf, kilocode, auggie, roo, codebuddy, amp, shai, kiro-cli, agy, bob, qodercli)
 
 .PARAMETER AgentType
-Key agent opsional untuk memperbarui satu agent saja. Jika dikosongkan, semua file agent yang ada akan diperbarui (membuat file Claude default jika belum ada).
+Optional agent key to update a single agent. If omitted, updates all existing agent files (creating a default Claude file if none exist).
 
 .EXAMPLE
 ./update-agent-context.ps1 -AgentType claude
 
 .EXAMPLE
-./update-agent-context.ps1   # Memperbarui semua file agent yang ada
+./update-agent-context.ps1   # Updates all existing agent files
 
 .NOTES
-Mengandalkan helper umum di common.ps1
+Relies on common helper functions in common.ps1
 #>
 param(
     [Parameter(Position=0)]
@@ -31,11 +31,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# Import helper umum
+# Import common helpers
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $ScriptDir 'common.ps1')
 
-# Ambil path environment
+# Acquire environment paths
 $envData = Get-FeaturePathsEnv
 $REPO_ROOT     = $envData.REPO_ROOT
 $CURRENT_BRANCH = $envData.CURRENT_BRANCH
@@ -43,7 +43,7 @@ $HAS_GIT       = $envData.HAS_GIT
 $IMPL_PLAN     = $envData.IMPL_PLAN
 $NEW_PLAN = $IMPL_PLAN
 
-# Path file agent
+# Agent file paths
 $CLAUDE_FILE   = Join-Path $REPO_ROOT 'CLAUDE.md'
 $GEMINI_FILE   = Join-Path $REPO_ROOT 'GEMINI.md'
 $COPILOT_FILE  = Join-Path $REPO_ROOT '.github/agents/copilot-instructions.md'
@@ -64,7 +64,7 @@ $BOB_FILE      = Join-Path $REPO_ROOT 'AGENTS.md'
 
 $TEMPLATE_FILE = Join-Path $REPO_ROOT '.specify/templates/agent-file-template.md'
 
-# Placeholder data plan yang ter-parse
+# Parsed plan data placeholders
 $script:NEW_LANG = ''
 $script:NEW_FRAMEWORK = ''
 $script:NEW_DB = ''
@@ -104,19 +104,19 @@ function Write-Err {
 
 function Validate-Environment {
     if (-not $CURRENT_BRANCH) {
-        Write-Err 'Tidak dapat menentukan feature saat ini'
-        if ($HAS_GIT) { Write-Info 'Pastikan Anda berada di feature branch' } else { Write-Info 'Set variabel environment SPECIFY_FEATURE atau buat feature terlebih dahulu' }
+        Write-Err 'Unable to determine current feature'
+        if ($HAS_GIT) { Write-Info "Make sure you're on a feature branch" } else { Write-Info 'Set SPECIFY_FEATURE environment variable or create a feature first' }
         exit 1
     }
     if (-not (Test-Path $NEW_PLAN)) {
-        Write-Err "Tidak ditemukan plan.md di $NEW_PLAN"
-        Write-Info 'Pastikan Anda sedang mengerjakan feature dengan direktori spec yang sesuai'
-        if (-not $HAS_GIT) { Write-Info 'Gunakan: $env:SPECIFY_FEATURE=nama-feature-anda atau buat feature baru terlebih dahulu' }
+        Write-Err "No plan.md found at $NEW_PLAN"
+        Write-Info 'Ensure you are working on a feature with a corresponding spec directory'
+        if (-not $HAS_GIT) { Write-Info 'Use: $env:SPECIFY_FEATURE=your-feature-name or create a new feature first' }
         exit 1
     }
     if (-not (Test-Path $TEMPLATE_FILE)) {
-        Write-Err "File template tidak ditemukan di $TEMPLATE_FILE"
-        Write-Info 'Jalankan specify init untuk membuat .specify/templates, atau tambahkan agent-file-template.md di sana.'
+        Write-Err "Template file not found at $TEMPLATE_FILE"
+        Write-Info 'Run specify init to scaffold .specify/templates, or add agent-file-template.md there.'
         exit 1
     }
 }
@@ -129,7 +129,7 @@ function Extract-PlanField {
         [string]$PlanFile
     )
     if (-not (Test-Path $PlanFile)) { return '' }
-    # Contoh baris: **Language/Version**: Python 3.12
+    # Lines like **Language/Version**: Python 3.12
     $regex = "^\*\*$([Regex]::Escape($FieldPattern))\*\*: (.+)$"
     Get-Content -LiteralPath $PlanFile -Encoding utf8 | ForEach-Object {
         if ($_ -match $regex) { 
@@ -144,17 +144,17 @@ function Parse-PlanData {
         [Parameter(Mandatory=$true)]
         [string]$PlanFile
     )
-    if (-not (Test-Path $PlanFile)) { Write-Err "File plan tidak ditemukan: $PlanFile"; return $false }
-    Write-Info "Melakukan parsing data plan dari $PlanFile"
+    if (-not (Test-Path $PlanFile)) { Write-Err "Plan file not found: $PlanFile"; return $false }
+    Write-Info "Parsing plan data from $PlanFile"
     $script:NEW_LANG        = Extract-PlanField -FieldPattern 'Language/Version' -PlanFile $PlanFile
     $script:NEW_FRAMEWORK   = Extract-PlanField -FieldPattern 'Primary Dependencies' -PlanFile $PlanFile
     $script:NEW_DB          = Extract-PlanField -FieldPattern 'Storage' -PlanFile $PlanFile
     $script:NEW_PROJECT_TYPE = Extract-PlanField -FieldPattern 'Project Type' -PlanFile $PlanFile
 
-    if ($NEW_LANG) { Write-Info "Bahasa ditemukan: $NEW_LANG" } else { Write-WarningMsg 'Tidak ada informasi bahasa di plan' }
-    if ($NEW_FRAMEWORK) { Write-Info "Framework ditemukan: $NEW_FRAMEWORK" }
-    if ($NEW_DB -and $NEW_DB -ne 'N/A') { Write-Info "Database ditemukan: $NEW_DB" }
-    if ($NEW_PROJECT_TYPE) { Write-Info "Tipe proyek ditemukan: $NEW_PROJECT_TYPE" }
+    if ($NEW_LANG) { Write-Info "Found language: $NEW_LANG" } else { Write-WarningMsg 'No language information found in plan' }
+    if ($NEW_FRAMEWORK) { Write-Info "Found framework: $NEW_FRAMEWORK" }
+    if ($NEW_DB -and $NEW_DB -ne 'N/A') { Write-Info "Found database: $NEW_DB" }
+    if ($NEW_PROJECT_TYPE) { Write-Info "Found project type: $NEW_PROJECT_TYPE" }
     return $true
 }
 
@@ -198,7 +198,7 @@ function Get-LanguageConventions {
         [Parameter(Mandatory=$false)]
         [string]$Lang
     )
-    if ($Lang) { "${Lang}: Ikuti konvensi standar" } else { 'Umum: Ikuti konvensi standar' } 
+    if ($Lang) { "${Lang}: Follow standard conventions" } else { 'General: Follow standard conventions' } 
 }
 
 function New-AgentFile {
@@ -210,7 +210,7 @@ function New-AgentFile {
         [Parameter(Mandatory=$true)]
         [datetime]$Date
     )
-    if (-not (Test-Path $TEMPLATE_FILE)) { Write-Err "Template tidak ditemukan di $TEMPLATE_FILE"; return $false }
+    if (-not (Test-Path $TEMPLATE_FILE)) { Write-Err "Template not found at $TEMPLATE_FILE"; return $false }
     $temp = New-TemporaryFile
     Copy-Item -LiteralPath $TEMPLATE_FILE -Destination $temp -Force
 
@@ -357,8 +357,8 @@ function Update-AgentFile {
         [Parameter(Mandatory=$true)]
         [string]$AgentName
     )
-    if (-not $TargetFile -or -not $AgentName) { Write-Err 'Update-AgentFile membutuhkan TargetFile dan AgentName'; return $false }
-    Write-Info "Memperbarui file konteks $AgentName: $TargetFile"
+    if (-not $TargetFile -or -not $AgentName) { Write-Err 'Update-AgentFile requires TargetFile and AgentName'; return $false }
+    Write-Info "Updating $AgentName context file: $TargetFile"
     $projectName = Split-Path $REPO_ROOT -Leaf
     $date = Get-Date
 
@@ -366,12 +366,12 @@ function Update-AgentFile {
     if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir | Out-Null }
 
     if (-not (Test-Path $TargetFile)) {
-        if (New-AgentFile -TargetFile $TargetFile -ProjectName $projectName -Date $date) { Write-Success "Berhasil membuat file konteks $AgentName baru" } else { Write-Err 'Gagal membuat file agent baru'; return $false }
+        if (New-AgentFile -TargetFile $TargetFile -ProjectName $projectName -Date $date) { Write-Success "Created new $AgentName context file" } else { Write-Err 'Failed to create new agent file'; return $false }
     } else {
         try {
-            if (Update-ExistingAgentFile -TargetFile $TargetFile -Date $date) { Write-Success "Berhasil memperbarui file konteks $AgentName" } else { Write-Err 'Gagal memperbarui file agent'; return $false }
+            if (Update-ExistingAgentFile -TargetFile $TargetFile -Date $date) { Write-Success "Updated existing $AgentName context file" } else { Write-Err 'Failed to update agent file'; return $false }
         } catch {
-            Write-Err "Tidak dapat mengakses atau memperbarui file yang ada: $TargetFile. $_"
+            Write-Err "Cannot access or update existing file: $TargetFile. $_"
             return $false
         }
     }
@@ -402,8 +402,8 @@ function Update-SpecificAgent {
         'kiro-cli' { Update-AgentFile -TargetFile $KIRO_FILE     -AgentName 'Kiro CLI' }
         'agy'      { Update-AgentFile -TargetFile $AGY_FILE      -AgentName 'Antigravity' }
         'bob'      { Update-AgentFile -TargetFile $BOB_FILE      -AgentName 'IBM Bob' }
-        'generic'  { Write-Info 'Generic agent: tidak ada file konteks bawaan. Gunakan script update yang spesifik untuk agent Anda.' }
-        default { Write-Err "Tipe agent tidak dikenal '$Type'"; Write-Err 'Ekspektasi: claude|gemini|copilot|cursor-agent|qwen|opencode|codex|windsurf|kilocode|auggie|roo|codebuddy|amp|shai|kiro-cli|agy|bob|qodercli|generic'; return $false }
+        'generic'  { Write-Info 'Generic agent: no predefined context file. Use the agent-specific update script for your agent.' }
+        default { Write-Err "Unknown agent type '$Type'"; Write-Err 'Expected: claude|gemini|copilot|cursor-agent|qwen|opencode|codex|windsurf|kilocode|auggie|roo|codebuddy|amp|shai|kiro-cli|agy|bob|qodercli|generic'; return $false }
     }
 }
 
@@ -427,7 +427,7 @@ function Update-AllExistingAgents {
     if (Test-Path $AGY_FILE)      { if (-not (Update-AgentFile -TargetFile $AGY_FILE      -AgentName 'Antigravity')) { $ok = $false }; $found = $true }
     if (Test-Path $BOB_FILE)      { if (-not (Update-AgentFile -TargetFile $BOB_FILE      -AgentName 'IBM Bob')) { $ok = $false }; $found = $true }
     if (-not $found) {
-        Write-Info 'Tidak ada file agent yang ditemukan, membuat file Claude default...'
+        Write-Info 'No existing agent files found, creating default Claude file...'
         if (-not (Update-AgentFile -TargetFile $CLAUDE_FILE -AgentName 'Claude Code')) { $ok = $false }
     }
     return $ok
@@ -435,29 +435,29 @@ function Update-AllExistingAgents {
 
 function Print-Summary {
     Write-Host ''
-    Write-Info 'Ringkasan perubahan:'
-    if ($NEW_LANG) { Write-Host "  - Bahasa ditambahkan: $NEW_LANG" }
-    if ($NEW_FRAMEWORK) { Write-Host "  - Framework ditambahkan: $NEW_FRAMEWORK" }
-    if ($NEW_DB -and $NEW_DB -ne 'N/A') { Write-Host "  - Database ditambahkan: $NEW_DB" }
+    Write-Info 'Summary of changes:'
+    if ($NEW_LANG) { Write-Host "  - Added language: $NEW_LANG" }
+    if ($NEW_FRAMEWORK) { Write-Host "  - Added framework: $NEW_FRAMEWORK" }
+    if ($NEW_DB -and $NEW_DB -ne 'N/A') { Write-Host "  - Added database: $NEW_DB" }
     Write-Host ''
-    Write-Info 'Penggunaan: ./update-agent-context.ps1 [-AgentType claude|gemini|copilot|cursor-agent|qwen|opencode|codex|windsurf|kilocode|auggie|roo|codebuddy|amp|shai|kiro-cli|agy|bob|qodercli|generic]'
+    Write-Info 'Usage: ./update-agent-context.ps1 [-AgentType claude|gemini|copilot|cursor-agent|qwen|opencode|codex|windsurf|kilocode|auggie|roo|codebuddy|amp|shai|kiro-cli|agy|bob|qodercli|generic]'
 }
 
 function Main {
     Validate-Environment
-    Write-Info "=== Memperbarui file konteks agent untuk feature $CURRENT_BRANCH ==="
-    if (-not (Parse-PlanData -PlanFile $NEW_PLAN)) { Write-Err 'Gagal melakukan parsing data plan'; exit 1 }
+    Write-Info "=== Updating agent context files for feature $CURRENT_BRANCH ==="
+    if (-not (Parse-PlanData -PlanFile $NEW_PLAN)) { Write-Err 'Failed to parse plan data'; exit 1 }
     $success = $true
     if ($AgentType) {
-        Write-Info "Memperbarui agent spesifik: $AgentType"
+        Write-Info "Updating specific agent: $AgentType"
         if (-not (Update-SpecificAgent -Type $AgentType)) { $success = $false }
     }
     else {
-        Write-Info 'Tidak ada agent yang dispesifikkan, memperbarui semua file agent yang ada...'
+        Write-Info 'No agent specified, updating all existing agent files...'
         if (-not (Update-AllExistingAgents)) { $success = $false }
     }
     Print-Summary
-    if ($success) { Write-Success 'Pembaruan konteks agent selesai dengan sukses'; exit 0 } else { Write-Err 'Pembaruan konteks agent selesai dengan error'; exit 1 }
+    if ($success) { Write-Success 'Agent context update completed successfully'; exit 0 } else { Write-Err 'Agent context update completed with errors'; exit 1 }
 }
 
 Main

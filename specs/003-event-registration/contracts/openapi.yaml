@@ -1,0 +1,340 @@
+openapi: "3.1.0"
+
+info:
+  title: Event Registration API
+  version: "1.0.0"
+  description: |
+    Event registration endpoints for the event platform:
+    - User registers for a public event
+    - User cancels their active registration
+    - User views their own registration history
+
+    All endpoints require a valid Bearer JWT (issued by `POST /auth/login`).
+    See `specs/001-authentication/contracts/openapi.yaml` for auth endpoints.
+    See `specs/002-event-management/contracts/openapi.yaml` for event listing endpoints.
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # ──────────────────────────────────────────────
+    # Enums
+    # ──────────────────────────────────────────────
+    RegistrationStatus:
+      type: string
+      enum: [active, cancelled]
+      description: |
+        Status of an event registration record.
+        - `active` — user is a current participant
+        - `cancelled` — user cancelled; record retained for audit
+
+    # ──────────────────────────────────────────────
+    # Response bodies
+    # ──────────────────────────────────────────────
+    RegistrationResponse:
+      type: object
+      required: [id, event_id, status, registered_at]
+      description: Minimal registration receipt returned on successful registration.
+      properties:
+        id:
+          type: integer
+          example: 17
+        event_id:
+          type: integer
+          example: 42
+        status:
+          $ref: "#/components/schemas/RegistrationStatus"
+        registered_at:
+          type: string
+          format: date-time
+          example: "2026-03-05T10:00:00Z"
+
+    EventSummary:
+      type: object
+      required: [id, title, date, registration_deadline, status]
+      description: Abbreviated event info embedded in registration list responses.
+      properties:
+        id:
+          type: integer
+          example: 42
+        title:
+          type: string
+          example: "Tech Conference 2026"
+        date:
+          type: string
+          format: date-time
+          example: "2026-09-15T02:00:00Z"
+        registration_deadline:
+          type: string
+          format: date-time
+          example: "2026-09-01T16:59:59Z"
+        status:
+          type: string
+          enum: [active, cancelled, deleted]
+          description: Event status — lets user see if the event was later cancelled.
+
+    RegistrationWithEventResponse:
+      type: object
+      required: [id, event_id, status, registered_at, event]
+      description: Full registration record including embedded event summary. Used in GET /registrations/me.
+      properties:
+        id:
+          type: integer
+          example: 17
+        event_id:
+          type: integer
+          example: 42
+        status:
+          $ref: "#/components/schemas/RegistrationStatus"
+        registered_at:
+          type: string
+          format: date-time
+          example: "2026-03-05T10:00:00Z"
+        cancelled_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        event:
+          $ref: "#/components/schemas/EventSummary"
+
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, httpStatus]
+          properties:
+            code:
+              type: string
+              example: "QUOTA_FULL"
+            message:
+              type: string
+              example: "Event 42 is fully booked"
+            httpStatus:
+              type: integer
+              example: 422
+
+# ──────────────────────────────────────────────────────────────────────────────
+security:
+  - bearerAuth: []
+
+# ──────────────────────────────────────────────────────────────────────────────
+paths:
+
+  # ── Register for an event ────────────────────────────────────────────────
+  /registrations/{event_id}:
+    parameters:
+      - name: event_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: ID of the event to register for (or cancel registration from).
+
+    post:
+      summary: Register for a public event
+      description: |
+        Creates a new `active` EventRegistration for the calling user and the specified event.
+
+        **Guards (evaluated in order)**:
+        1. Event exists and is `active` with `date >= now()` — otherwise 404
+        2. `registration_deadline` has not passed — otherwise 422
+        3. No existing `active` registration for this (user, event) pair — otherwise 409
+        4. `current_participants < quota` — otherwise 422
+
+        **Re-registration**: If the user previously cancelled their registration, a new
+        `active` record is created. The cancelled record is retained as audit history.
+
+        **Concurrency**: Quota enforcement uses an atomic `UPDATE … WHERE current_participants < quota`
+        — overbooking is structurally impossible even under concurrent requests.
+      tags: [Registrations]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        description: No request body needed — event is specified via path parameter.
+      responses:
+        "201":
+          description: Registration created successfully.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistrationResponse"
+              example:
+                id: 17
+                event_id: 42
+                status: "active"
+                registered_at: "2026-03-05T10:00:00Z"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Event not found or not publicly accessible.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: EVENT_NOT_FOUND
+                  message: "Event 42 not found"
+                  httpStatus: 404
+        "409":
+          description: User already has an active registration for this event.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: DUPLICATE_REGISTRATION
+                  message: "User already has an active registration for event 42"
+                  httpStatus: 409
+        "422":
+          description: |
+            Registration rejected because:
+            - `registration_deadline` has passed, OR
+            - Event quota is full.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              examples:
+                deadline_passed:
+                  summary: Registration deadline passed
+                  value:
+                    error:
+                      code: REGISTRATION_DEADLINE_PASSED
+                      message: "Registration deadline for event 42 has passed"
+                      httpStatus: 422
+                quota_full:
+                  summary: Event quota full
+                  value:
+                    error:
+                      code: QUOTA_FULL
+                      message: "Event 42 is fully booked"
+                      httpStatus: 422
+
+    delete:
+      summary: Cancel active registration for an event
+      description: |
+        Soft-deletes the calling user's active registration for the specified event.
+        Sets status to `cancelled` and records `cancelled_at` timestamp.
+        Decrements `event.current_participants` in the same transaction.
+
+        **Guards**:
+        1. An active registration for (user, event) must exist — otherwise 404
+        2. `registration_deadline` must not have passed — otherwise 422
+
+        **Note**: After a successful cancellation, the user may register again
+        (as long as deadline has not passed and quota is available).
+      tags: [Registrations]
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Registration cancelled (status set to `cancelled`). No response body.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: No active registration found for this user + event combination.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: REGISTRATION_NOT_FOUND
+                  message: "No active registration found for this event"
+                  httpStatus: 404
+        "422":
+          description: Cancellation rejected — `registration_deadline` has already passed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: REGISTRATION_DEADLINE_PASSED
+                  message: "Registration deadline for event 42 has passed"
+                  httpStatus: 422
+
+  # ── My registrations list ─────────────────────────────────────────────────
+  /registrations/me:
+    get:
+      summary: Get my registration history
+      description: |
+        Returns all EventRegistration records belonging to the calling user,
+        including both `active` and `cancelled` registrations, ordered by
+        `registered_at` descending (most recent first).
+
+        Each item includes an embedded `EventSummary` with the event's title,
+        dates, and status (so the user can see if an event was subsequently cancelled).
+
+        **Privacy**: Users can only see their own records. Retrieving another user's
+        registrations is not supported (FR-009, FR-010).
+
+        **Results**: Complete list — no pagination. Expected to be small
+        (single-digit to double-digit entries per user).
+      tags: [Registrations]
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of user's registrations (may be empty).
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RegistrationWithEventResponse"
+              example:
+                - id: 17
+                  event_id: 42
+                  status: "active"
+                  registered_at: "2026-03-05T10:00:00Z"
+                  cancelled_at: null
+                  event:
+                    id: 42
+                    title: "Tech Conference 2026"
+                    date: "2026-09-15T02:00:00Z"
+                    registration_deadline: "2026-09-01T16:59:59Z"
+                    status: "active"
+                - id: 12
+                  event_id: 38
+                  status: "cancelled"
+                  registered_at: "2026-02-15T09:00:00Z"
+                  cancelled_at: "2026-02-20T14:30:00Z"
+                  event:
+                    id: 38
+                    title: "Python Workshop"
+                    date: "2026-08-10T08:00:00Z"
+                    registration_deadline: "2026-08-01T23:59:59Z"
+                    status: "active"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Reusable responses
+# ──────────────────────────────────────────────────────────────────────────────
+  responses:
+    Unauthorized:
+      description: Missing or invalid JWT token.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorEnvelope"
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: "Authentication required"
+              httpStatus: 401

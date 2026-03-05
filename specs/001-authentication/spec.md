@@ -5,6 +5,16 @@
 **Status**: Draft  
 **Input**: Deskripsi pengguna: "Authentication system dengan JWT dan role based access"
 
+## Clarifications
+
+### Session 2026-03-05
+
+- Q: Seperti apa skema tepat error JSON yang "konsisten" untuk semua kasus error autentikasi/otorisasi? → A: Gunakan struktur `{ "error": { "code": string, "message": string, "httpStatus": number } }` di seluruh endpoint.
+- Q: HTTP status code apa yang harus digunakan untuk login gagal, request tanpa token, token invalid/kedaluwarsa, akses endpoint admin-only oleh user ber-role `user`, dan registrasi dengan email yang sudah digunakan? → A: Login salah, request tanpa token, token invalid atau kedaluwarsa → 401; akses endpoint admin-only oleh user ber-role `user` → 403; registrasi dengan email yang sudah digunakan → 409.
+- Q: Melalui header apa dan dengan format apa JWT HARUS dikirim untuk mengakses endpoint terproteksi? → A: JWT HARUS dikirim melalui header HTTP `Authorization` dengan skema `Bearer`, dengan format `Authorization: Bearer <token>`.
+- Q: Algoritma signing apa yang HARUS digunakan untuk JWT dan claim minimum apa saja yang wajib ada di dalam token? → A: JWT HARUS ditandatangani dengan algoritma HS256 (shared secret) dan minimal memuat claim `sub` (identifier user unik), `role`, `iat`, dan `exp`.
+- Q: Berapa nilai default expiration time untuk JWT access token yang diharapkan pada fitur ini? → A: JWT access token HARUS memiliki expiration time default 60 menit (1 jam) sejak waktu penerbitan, kecuali dikonfigurasi lain melalui pengaturan environment.
+
 ## User Scenarios & Testing *(wajib)*
 
 ### User Story 1 - Registrasi user baru (Prioritas: P1)
@@ -68,18 +78,19 @@ Sistem memiliki dua role: user dan admin. Admin dapat mengakses endpoint tertent
 - **FR-003**: Sistem HARUS melakukan hashing password menggunakan bcrypt sebelum menyimpannya dan TIDAK BOLEH menyimpan password dalam bentuk plain text.
 - **FR-004**: Sistem HARUS menyediakan endpoint login yang menerima email dan password, memverifikasi keduanya terhadap data tersimpan, dan menolak login ketika kombinasi tidak valid.
 - **FR-005**: Sistem HARUS mengembalikan JWT access token pada login yang berhasil, yang memuat setidaknya identifier user dan role-nya.
-- **FR-006**: Sistem HARUS mewajibkan penggunaan JWT access token untuk mengakses endpoint terproteksi (misalnya melalui header otorisasi yang konsisten).
+- **FR-006**: Sistem HARUS mewajibkan penggunaan JWT access token untuk mengakses endpoint terproteksi melalui header HTTP `Authorization` dengan skema `Bearer` (format `Authorization: Bearer <token>`).
 - **FR-007**: Sistem HARUS mendukung minimal dua role: `user` dan `admin`.
 - **FR-008**: Sistem HARUS membatasi akses ke endpoint tertentu hanya untuk role `admin`; permintaan dari role lain HARUS ditolak dengan error otorisasi.
-- **FR-009**: Sistem HARUS menerapkan expiration time pada JWT sehingga token hanya berlaku dalam rentang waktu tertentu dan token yang kedaluwarsa HARUS ditolak.
-- **FR-010**: Sistem HARUS menggunakan HTTP status code standar untuk semua respons autentikasi dan otorisasi (misalnya keberhasilan, unauthorized, forbidden, conflict, bad request).
-- **FR-011**: Sistem HARUS mengembalikan error response dalam format JSON yang konsisten, minimal memuat informasi kode error dan pesan yang dapat dipahami.
+- **FR-009**: Sistem HARUS menerapkan expiration time pada JWT sehingga token hanya berlaku dalam rentang waktu tertentu dan token yang kedaluwarsa HARUS ditolak. Nilai default expiration time untuk JWT access token HARUS 60 menit (1 jam) sejak waktu penerbitan, dengan kemungkinan untuk dioverride melalui konfigurasi environment.
+- **FR-010**: Sistem HARUS menggunakan HTTP status code standar yang konsisten untuk semua respons autentikasi dan otorisasi. Minimal: login dengan kredensial salah, request tanpa token, token invalid atau kedaluwarsa HARUS menggunakan 401 Unauthorized; akses endpoint admin-only oleh user ber-role `user` HARUS menggunakan 403 Forbidden; registrasi dengan email yang sudah digunakan HARUS menggunakan 409 Conflict.
+- **FR-011**: Sistem HARUS mengembalikan error response dalam format JSON yang konsisten dengan struktur `{"error": {"code": string, "message": string, "httpStatus": number}}`, sehingga minimal memuat kode error terstruktur, pesan yang dapat dipahami, dan HTTP status yang merefleksikan respons.
+- **FR-012**: JWT access token HARUS ditandatangani menggunakan algoritma HS256 dengan shared secret yang aman dan minimal memuat claim `sub` (identifier user unik), `role`, `iat`, dan `exp`.
 
 ### Key Entities *(sertakan jika fitur melibatkan data)*
 
 - **User**: Merepresentasikan akun individu yang dapat melakukan autentikasi. Atribut kunci meliputi identifier unik, name, email (unik), password yang sudah di-hash (bcrypt), status aktivasi, dan role.
 - **Role**: Merepresentasikan kelompok permission bernama (`user` dan `admin`). Role dikaitkan dengan user dan menentukan endpoint/operator mana yang boleh diakses.
-- **Auth Token (JWT)**: Merepresentasikan JWT access token yang diterbitkan saat login berhasil dan digunakan pada request ke endpoint terproteksi. Token ini mengenkapsulasi identitas user, informasi role, dan expiration time, serta dapat diverifikasi integritasnya.
+- **Auth Token (JWT)**: Merepresentasikan JWT access token yang diterbitkan saat login berhasil dan digunakan pada request ke endpoint terproteksi. Token ini mengenkapsulasi identitas user, informasi role, dan expiration time, serta dapat diverifikasi integritasnya. JWT HARUS ditandatangani menggunakan algoritma HS256 (shared secret) dan minimal memuat claim `sub` (identifier user unik), `role`, `iat`, dan `exp`.
 
 ## Success Criteria *(wajib)*
 

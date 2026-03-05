@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# Men-setup rencana implementasi untuk sebuah fitur
+# Setup implementation plan for a feature
 
 [CmdletBinding()]
 param(
@@ -9,40 +9,40 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-# Tampilkan bantuan jika diminta
+# Show help if requested
 if ($Help) {
-    Write-Output "Penggunaan: ./setup-plan.ps1 [-Json] [-Help]"
-    Write-Output "  -Json     Menampilkan hasil dalam format JSON"
-    Write-Output "  -Help     Menampilkan pesan bantuan ini"
+    Write-Output "Usage: ./setup-plan.ps1 [-Json] [-Help]"
+    Write-Output "  -Json     Output results in JSON format"
+    Write-Output "  -Help     Show this help message"
     exit 0
 }
 
-# Muat fungsi-fungsi umum
+# Load common functions
 . "$PSScriptRoot/common.ps1"
 
-# Ambil semua path dan variabel dari fungsi umum
+# Get all paths and variables from common functions
 $paths = Get-FeaturePathsEnv
 
-# Periksa apakah saat ini berada di feature branch yang benar (hanya untuk repo git)
+# Check if we're on a proper feature branch (only for git repos)
 if (-not (Test-FeatureBranch -Branch $paths.CURRENT_BRANCH -HasGit $paths.HAS_GIT)) { 
     exit 1 
 }
 
-# Pastikan direktori fitur ada
+# Ensure the feature directory exists
 New-Item -ItemType Directory -Path $paths.FEATURE_DIR -Force | Out-Null
 
-# Salin template plan jika ada, jika tidak catat atau buat file kosong
+# Copy plan template if it exists, otherwise note it or create empty file
 $template = Join-Path $paths.REPO_ROOT '.specify/templates/plan-template.md'
 if (Test-Path $template) { 
     Copy-Item $template $paths.IMPL_PLAN -Force
-    Write-Output "Template plan disalin ke $($paths.IMPL_PLAN)"
+    Write-Output "Copied plan template to $($paths.IMPL_PLAN)"
 } else {
-    Write-Warning "Template plan tidak ditemukan di $template"
-    # Buat file plan dasar jika template tidak ada
+    Write-Warning "Plan template not found at $template"
+    # Create a basic plan file if template doesn't exist
     New-Item -ItemType File -Path $paths.IMPL_PLAN -Force | Out-Null
 }
 
-# Tampilkan hasil
+# Output results
 if ($Json) {
     $result = [PSCustomObject]@{ 
         FEATURE_SPEC = $paths.FEATURE_SPEC
