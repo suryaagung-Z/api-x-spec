@@ -1,96 +1,97 @@
-# Feature Specification: Authentication with JWT and Role-Based Access
+# Spesifikasi Fitur: Authentication and Authorization
 
 **Feature Branch**: `[001-authentication]`  
-**Created**: 2026-03-04  
+**Dibuat**: 2026-03-04  
 **Status**: Draft  
-**Input**: User description: "Authentication system dengan JWT dan role based access"
+**Input**: Deskripsi pengguna: "Authentication system dengan JWT dan role based access"
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing *(wajib)*
 
-### User Story 1 - Authenticate and access own resources (Priority: P1)
+### User Story 1 - Registrasi user baru (Prioritas: P1)
 
-A registered user signs in with their credentials, receives an access token, and uses it to access protected endpoints related to their own account (for example, viewing their profile or personal data). Requests with a valid, unexpired token succeed; requests without a token or with an invalid token are rejected.
+Pengguna baru ingin membuat akun dengan mengisi nama, email, dan password. Jika email belum pernah digunakan, sistem membuat akun baru, menyimpan password dalam bentuk hash bcrypt (bukan plain text), dan mengonfirmasi bahwa registrasi berhasil. Jika email sudah terdaftar, sistem menolak registrasi dengan pesan error yang jelas.
 
-**Why this priority**: Without basic authentication and token validation, no protected API endpoints can be safely exposed. This is the minimum slice that delivers security and user value.
+**Alasan prioritas ini**: Tanpa alur registrasi yang aman dan validasi email unik, tidak ada basis identitas yang dapat digunakan untuk autentikasi berikutnya.
 
-**Independent Test**: This story is testable by creating a user, signing in to obtain a token, and calling a protected endpoint. Using the same flow, attempts without a token or with a tampered token must fail.
+**Independent Test**: Story ini dapat diuji dengan mencoba registrasi menggunakan email baru (berhasil dan password tersimpan sebagai hash bcrypt), lalu mencoba registrasi ulang dengan email yang sama (ditolak dengan error yang konsisten dalam format JSON).
 
 **Acceptance Scenarios**:
 
-1. **Given** a registered user with valid credentials, **When** they submit those credentials to the sign-in endpoint, **Then** they receive an access token that allows them to access a protected "own profile" endpoint.
-2. **Given** a request to a protected endpoint without any token or with a malformed/tampered token, **When** the request is processed, **Then** the system returns an authorization failure response and does not expose protected data.
+1. **Given** pengguna belum memiliki akun dengan email tertentu, **When** ia mengirimkan permintaan registrasi dengan name, email, dan password yang valid, **Then** sistem membuat akun baru, menyimpan password dalam bentuk hash bcrypt, dan mengembalikan respons sukses.
+2. **Given** sudah ada akun dengan email tertentu, **When** ada permintaan registrasi baru menggunakan email yang sama, **Then** sistem menolak registrasi dan mengembalikan error dalam format JSON yang konsisten yang menjelaskan bahwa email sudah digunakan.
 
 ---
 
-### User Story 2 - Enforce role-based access to admin features (Priority: P1)
+### User Story 2 - Login dan akses endpoint terproteksi sebagai user (Prioritas: P1)
 
-An administrator signs in and receives an access token that includes their role. Using this token, they can perform admin-only operations (for example, managing users or configuration). Non-admin users with valid tokens cannot perform these operations and receive a clear "insufficient permissions" response.
+Pengguna yang sudah terdaftar melakukan login menggunakan email dan password. Jika kombinasi kredensial benar, sistem mengembalikan JWT access token. Untuk mengakses endpoint terproteksi sebagai user (misalnya melihat profil sendiri), pengguna harus mengirimkan token tersebut. Request dengan token valid dan belum kedaluwarsa akan berhasil; request tanpa token, dengan token tidak valid, atau dengan kredensial login yang salah akan ditolak dengan HTTP status code standar dan error JSON yang konsisten.
 
-**Why this priority**: Separating privileged admin capabilities from regular user capabilities is critical for security and governance, and is often required before exposing admin features in production.
+**Alasan prioritas ini**: Login dan penggunaan JWT adalah inti dari mekanisme autentikasi; tanpa ini, endpoint terproteksi tidak dapat diakses dengan aman.
 
-**Independent Test**: This story is testable by signing in as an admin user to perform an admin-only operation successfully, then signing in as a regular user and verifying that the same operation is denied while regular user operations still succeed.
+**Independent Test**: Story ini dapat diuji dengan melakukan registrasi user, login menggunakan email dan password, memverifikasi bahwa sistem mengembalikan JWT, lalu memanggil endpoint terproteksi dengan dan tanpa token untuk melihat perbedaan hasil.
 
 **Acceptance Scenarios**:
 
-1. **Given** a user with an assigned "admin" role, **When** they authenticate and call an admin-only endpoint with their token, **Then** the request succeeds and the privileged action is performed.
-2. **Given** a user with a non-admin role, **When** they authenticate and attempt the same admin-only endpoint with their token, **Then** the request is rejected with an "insufficient permissions" style response and no privileged action occurs.
+1. **Given** pengguna terdaftar dengan email dan password yang benar, **When** ia melakukan login dengan kredensial tersebut, **Then** sistem mengembalikan JWT access token dalam respons JSON.
+2. **Given** request ke endpoint terproteksi tanpa header otorisasi yang berisi JWT atau dengan token yang rusak/kedaluwarsa, **When** request diproses, **Then** sistem menolak request dengan HTTP status code standar (misalnya unauthorized/forbidden) dan body error JSON yang konsisten.
 
 ---
 
-### User Story 3 - Handle token expiry and logout (Priority: P2)
+### User Story 3 - Akses endpoint khusus admin (Prioritas: P2)
 
-An authenticated user’s access token eventually expires. After expiry, attempts to use that token on protected endpoints fail with a clear error, and the user must sign in again to get a new token. When a user explicitly logs out, subsequent use of that token no longer grants access according to the chosen revocation strategy.
+Sistem memiliki dua role: user dan admin. Admin dapat mengakses endpoint tertentu (misalnya manajemen user atau konfigurasi), sedangkan user biasa tidak boleh mengaksesnya. Ketika admin login, JWT yang diterbitkan memuat informasi role admin sehingga endpoint dapat memverifikasi hak akses. Jika user biasa mencoba mengakses endpoint khusus admin, sistem menolak dengan error otorisasi.
 
-**Why this priority**: Token expiry and logout are essential for limiting the window of exposure if a token is compromised and for aligning with security best practices.
+**Alasan prioritas ini**: Pemisahan hak akses antara admin dan user adalah inti dari authorization dan diperlukan untuk menjaga keamanan fitur-fitur sensitif.
 
-**Independent Test**: This story is testable by issuing a short-lived token in a test environment, waiting until it expires, and verifying calls fail; and by simulating logout or token revocation and ensuring the token is no longer accepted while new tokens work normally.
+**Independent Test**: Story ini dapat diuji dengan membuat satu akun ber-role admin dan satu akun ber-role user, melakukan login untuk masing-masing, lalu memanggil endpoint admin-only dengan kedua token dan memastikan hanya token admin yang diterima.
 
 **Acceptance Scenarios**:
 
-1. **Given** a valid access token that has passed its configured expiry time, **When** it is used to call a protected endpoint, **Then** the system rejects the request and communicates that re-authentication is required.
-2. **Given** a user who has explicitly logged out or whose access has been revoked, **When** their previously issued token is used on a protected endpoint, **Then** the system rejects the request and does not perform the protected action.
+1. **Given** akun dengan role admin, **When** admin login dan memanggil endpoint admin-only dengan JWT yang valid, **Then** sistem mengizinkan akses dan menjalankan operasi admin.
+2. **Given** akun dengan role user biasa, **When** user tersebut login dan mencoba memanggil endpoint admin-only dengan JWT-nya, **Then** sistem menolak akses dengan HTTP status code standar dan error JSON yang konsisten yang menjelaskan bahwa permission tidak mencukupi.
 
 ---
 
 ### Edge Cases
 
-- What happens when a token is structurally valid but has been tampered with (for example, signature does not match or claims are altered)? The system must treat it as invalid and deny access without revealing sensitive error details.
-- How does the system handle requests where a user has no roles assigned or has been deactivated after a token was issued? Access to protected endpoints must be denied until a valid, active role assignment exists.
-- What happens when a token is very close to expiry during an active session? The system must define expected behavior (for example, allow the current request but require refresh or re-authentication for subsequent requests).
-- How does the system behave when a user’s role changes (for example, promotion from user to admin or removal of admin rights) while an existing token is still active? The behavior must be clearly defined so that new permissions are not granted and removed permissions are not accidentally preserved longer than acceptable.
+- Token secara struktur valid tetapi tanda tangan tidak cocok atau claim diubah secara manual: sistem harus menganggap token tidak valid dan menolak akses tanpa mengungkap detail teknis sensitif.
+- Request ke endpoint terproteksi menggunakan token dengan role user ke endpoint yang hanya boleh diakses admin: sistem harus menolak akses dengan respons otorisasi standar.
+- Token digunakan setelah melewati expiration time yang dikonfigurasi: sistem harus menolak token dan meminta user untuk login kembali.
+- Percobaan login berulang dengan kredensial yang salah: sistem harus mengembalikan error yang konsisten tanpa mengungkap apakah email atau password yang salah.
 
-## Requirements *(mandatory)*
+## Requirements *(wajib)*
 
 ### Functional Requirements
 
-- **FR-001**: The system MUST allow a registered user to authenticate with their credentials and receive an access token representing their identity and roles.
-- **FR-002**: The system MUST validate the access token on every request to protected endpoints and deny access when the token is missing, expired, malformed, or fails integrity checks.
-- **FR-003**: The system MUST enforce role-based authorization so that only users with the required role(s) can perform each protected operation.
-- **FR-004**: The system MUST maintain and persist user identities, role assignments, and (where applicable) permissions so that authorization decisions are reproducible and auditable.
-- **FR-005**: The system MUST record key authentication and authorization events (for example, successful sign-in, failed sign-in, access denied due to insufficient role) for monitoring and audit purposes.
-- **FR-006**: The system MUST support at least a "regular user" role and an "admin" role, with clearly differentiated access to protected operations.
-- **FR-007**: The system MUST enforce configurable token expiry so that tokens are only accepted within a defined validity window.
-- **FR-008**: The system MUST provide a mechanism for effectively revoking a user’s ability to access protected endpoints via previously issued tokens (for example, due to logout, account lock, or security incident).
+- **FR-001**: Sistem HARUS menyediakan endpoint registrasi yang menerima name, email, dan password untuk membuat akun user baru.
+- **FR-002**: Sistem HARUS memastikan email bersifat unik; permintaan registrasi dengan email yang sudah terdaftar HARUS ditolak.
+- **FR-003**: Sistem HARUS melakukan hashing password menggunakan bcrypt sebelum menyimpannya dan TIDAK BOLEH menyimpan password dalam bentuk plain text.
+- **FR-004**: Sistem HARUS menyediakan endpoint login yang menerima email dan password, memverifikasi keduanya terhadap data tersimpan, dan menolak login ketika kombinasi tidak valid.
+- **FR-005**: Sistem HARUS mengembalikan JWT access token pada login yang berhasil, yang memuat setidaknya identifier user dan role-nya.
+- **FR-006**: Sistem HARUS mewajibkan penggunaan JWT access token untuk mengakses endpoint terproteksi (misalnya melalui header otorisasi yang konsisten).
+- **FR-007**: Sistem HARUS mendukung minimal dua role: `user` dan `admin`.
+- **FR-008**: Sistem HARUS membatasi akses ke endpoint tertentu hanya untuk role `admin`; permintaan dari role lain HARUS ditolak dengan error otorisasi.
+- **FR-009**: Sistem HARUS menerapkan expiration time pada JWT sehingga token hanya berlaku dalam rentang waktu tertentu dan token yang kedaluwarsa HARUS ditolak.
+- **FR-010**: Sistem HARUS menggunakan HTTP status code standar untuk semua respons autentikasi dan otorisasi (misalnya keberhasilan, unauthorized, forbidden, conflict, bad request).
+- **FR-011**: Sistem HARUS mengembalikan error response dalam format JSON yang konsisten, minimal memuat informasi kode error dan pesan yang dapat dipahami.
 
-### Key Entities *(include if feature involves data)*
+### Key Entities *(sertakan jika fitur melibatkan data)*
 
-- **User**: Represents an individual account that can authenticate. Key attributes include a unique identifier, authentication credential(s), activation status, and a set of associated roles.
-- **Role**: Represents a named grouping of permissions (for example, regular user, admin, support). Roles are associated with users and define which protected operations they are allowed to perform.
-- **Authorization Policy / Permission**: Represents the mapping between roles and specific protected operations or resources (for example, which endpoints or actions require admin vs. regular user access).
-- **Auth Token**: Represents the issued access token used on requests to protected endpoints. It encapsulates the user identity, role information, and validity period, and is verifiable for integrity.
+- **User**: Merepresentasikan akun individu yang dapat melakukan autentikasi. Atribut kunci meliputi identifier unik, name, email (unik), password yang sudah di-hash (bcrypt), status aktivasi, dan role.
+- **Role**: Merepresentasikan kelompok permission bernama (`user` dan `admin`). Role dikaitkan dengan user dan menentukan endpoint/operator mana yang boleh diakses.
+- **Auth Token (JWT)**: Merepresentasikan JWT access token yang diterbitkan saat login berhasil dan digunakan pada request ke endpoint terproteksi. Token ini mengenkapsulasi identitas user, informasi role, dan expiration time, serta dapat diverifikasi integritasnya.
 
-## Success Criteria *(mandatory)*
+## Success Criteria *(wajib)*
 
 ### Measurable Outcomes
 
-- **SC-001**: At least 95% of users with valid credentials can sign in and access their primary protected endpoint (for example, own profile) within 5 seconds under normal load.
-- **SC-002**: 100% of automated tests that simulate requests with insufficient roles demonstrate that protected admin-only operations are denied while permitted operations for regular users continue to succeed.
-- **SC-003**: 100% of expired, tampered, or otherwise invalid tokens used in automated tests are rejected by protected endpoints without exposing sensitive diagnostic information to the caller.
-- **SC-004**: During initial rollout, there are zero confirmed incidents of users accessing endpoints or operations that their assigned role should not permit, as measured by audit logs and security reviews.
+- **SC-001**: Setidaknya 95% pengguna baru yang mengisi name, email, dan password yang valid dapat menyelesaikan registrasi dan login pertama kali dalam waktu kurang dari 5 detik pada beban normal.
+- **SC-002**: 100% percobaan registrasi dengan email yang sudah terdaftar dalam automated test menghasilkan penolakan dengan HTTP status code standar dan error JSON yang konsisten yang menjelaskan konflik email.
+- **SC-003**: 100% request ke endpoint terproteksi tanpa token, dengan token kedaluwarsa, atau dengan token yang tidak valid dalam automated test ditolak tanpa mengekspos detail teknis sensitif dalam body JSON.
+- **SC-004**: 100% request ke endpoint admin-only yang dikirim dengan JWT ber-role `user` dalam automated test ditolak, sementara request dengan JWT ber-role `admin` berhasil.
 
 ## Assumptions & Dependencies
 
-- The system already has or will have a way to create and manage user accounts; designing full user registration flows is out of scope for this feature unless explicitly expanded.
-- Access tokens will be implemented as stateless tokens using the JSON Web Token (JWT) standard, and will be transmitted by clients using a consistent mechanism (for example, an authorization header) defined elsewhere in the API guidelines.
-- Role definitions (for example, names and high-level responsibilities for each role) will be agreed with stakeholders before implementation, and changes to these definitions may require updates to authorization rules and tests.
-- Any additional security requirements (such as compliance obligations or regional data protection rules) will be surfaced separately and may influence token lifetimes, audit logging retention, and the level of detail in error messages.
+- Implementasi detail penyimpanan data (misalnya jenis database) dan pemilihan library konkret untuk bcrypt dan JWT akan ditentukan pada tahap perencanaan teknis, namun harus mendukung requirement di atas.
+- Integrasi dengan sistem manajemen pengguna yang lebih luas (misalnya manajemen profil lanjutan, verifikasi email, atau pemulihan password) berada di luar cakupan fitur ini kecuali secara eksplisit ditambahkan.
+- Kebijakan keamanan tambahan (misalnya kewajiban compliance atau regulasi perlindungan data) dapat memengaruhi nilai default expiration time token serta detail isi error message, dan akan dikonfirmasi dengan stakeholder keamanan.
