@@ -1,13 +1,13 @@
 # Implementation Plan: 002-event-management
 
-**Branch**: `002-event-management` | **Date**: 2025 | **Spec**: [spec.md](spec.md)
+**Branch**: `002-event-management` | **Date**: 2026-03-05 | **Spec**: [spec.md](spec.md)
 **Input**: Feature specification from `/specs/002-event-management/spec.md`
 
 ---
 
 ## Summary
 
-Event management feature providing admin CRUD for public events and user-facing browsing with offset pagination. Admin operations (create/update/delete) are gated by RBAC from **001-authentication** (`require_role(UserRole.ADMIN)`). Deletion is a soft delete via a three-value status enum (`active`/`cancelled`/`deleted`). User listing filters to future, active events only; a `registration_closed` derived field is computed at serialization time.
+Event management feature providing admin CRUD for public events and user-facing browsing with offset pagination. Admin operations (create/update/delete) are gated by RBAC from **001-authentication** (`require_role(UserRole.ADMIN)`). Deletion is a soft delete using `EventStatus.DELETED` (two-value enum: `ACTIVE`/`DELETED`). User listing filters to future, active events only; a `registration_closed` derived field is computed at serialization time.
 
 **Stack**: Python 3.11 · FastAPI · SQLAlchemy 2.x async · Alembic 1.13 · Pydantic v2 · pydantic-settings · asyncpg (prod) / aiosqlite (dev+test)
 
@@ -21,9 +21,11 @@ Event management feature providing admin CRUD for public events and user-facing 
 **Testing**: pytest + pytest-asyncio + httpx AsyncClient
 **Target Platform**: Linux server
 **Project Type**: web-service (HTTP API, REST)
-**Performance Goals**: NFR-001/004 — 95% of requests respond within a few seconds at normal load (spec SC-004)
-**Constraints**: Offset pagination max 100 per page; `registration_deadline ≤ date` enforced; status enum must align with spec vocabulary; future-only public listing
+**Performance Goals**: NFR-001 — p95 < 1000 ms for `GET /events` at normal load with up to thousands of active events (spec SC-004)
+**Constraints**: Offset pagination max 100 per page; `registration_deadline ≤ date` and `date ≥ now` enforced on create (FR-012, FR-013); status enum aligns with spec vocabulary (`ACTIVE`/`DELETED`); future-only public listing; NFR-002 satisfied by `ix_events_date_title` (composite on `date`, `title`) + `ix_events_registration_deadline` indexes created via CONCURRENTLY Alembic migration (T005) — no separate performance gate beyond NFR-001/T031
 **Scale/Scope**: Depends on 001-authentication for RBAC; provides foundational data for 003-event-registration
+**Code Quality Tooling**: Black (auto-formatter) + Ruff (linter); both MUST be applied to all new modules. CI gate: `black --check src/ tests/` and `ruff check src/ tests/`. Satisfies constitution §Technology "MUST be documented in plan or README" requirement.
+**EventStatus wire format**: Serialized as lowercase on the wire (`active`, `deleted`) per OpenAPI contract. Python enum member names use uppercase (`ACTIVE`, `DELETED`) with lowercase string values, e.g. `EventStatus.ACTIVE = "active"`.
 
 ---
 
@@ -46,14 +48,14 @@ Dependency direction: API → Application → Domain ← Infrastructure (inward-
 
 ### Gate 3 — Testing Strategy ✅
 Each user story has a defined test path:
-- **US1 (admin create)**: Contract test (`POST /admin/events` 201/400/422/401/403), unit test (`EventCreate` validation: deadline > date raises `ValidationError`), integration test (repo `create_event` persists and returns correct ORM object)
-- **US2 (admin update/delete)**: Contract test (`PUT /admin/events/{id}` 200/404, `DELETE /admin/events/{id}` 204/404), unit test (quota below participants → `QuotaBelowParticipantsError`), integration test (delete sets status to DELETED, event no longer appears in public query)
-- **US3 (user browse)**: Contract test (`GET /events` 200 with correct `Page[EventResponse]` shape, `GET /events/{id}` 200/404), unit test (`registration_closed` computed field True/False, `_public_events_query()` excludes non-active/past events), integration test (pagination math, ordering `date ASC, title ASC`)
+- **US1 (admin create)**: Contract test (`POST /admin/events` 201/422/401/403; 422 also for `date` in past per FR-013), unit test (`EventCreate` validation: deadline > date raises `ValidationError`; `date` in past → `EventDateInPastError` via service), integration test (repo `create_event` persists and returns correct ORM object)
+- **US2 (admin update/delete)**: Contract test (`GET /admin/events/{id}` 200/404/401/403 per FR-014, `PUT /admin/events/{id}` 200/404/409/422/401/403, `DELETE /admin/events/{id}` 204/404/401/403), unit test (quota below participants → `QuotaBelowParticipantsError`), integration test (delete sets status to DELETED, event no longer appears in public query)
+- **US3 (user browse)**: Contract test (`GET /events` 200 with correct `Page[EventResponse]` shape, `GET /events/{id}` 200/404), unit test (`registration_closed` computed field True/False, `_public_events_query()` excludes `DELETED` and past events), integration test (pagination math, ordering `date ASC, title ASC`)
 
 Tests are non-negotiable deliverables tracked in tasks.md.
 
 ### Gate 4 — Simplicity & Observability ✅
-No additional services or infrastructure beyond the existing 001-authentication foundation. Single project structure. Observability via FastAPI default exception handlers + structured logging (same pattern as 001-authentication). `_public_events_query()` helper eliminates scattered filter duplication. No additional complexity entries needed.
+No additional services or infrastructure beyond the existing 001-authentication foundation. Single project structure. Observability via FastAPI default exception handlers + structured logging (same pattern as 001-authentication). `_public_events_query()` helper eliminates scattered filter duplication. No additional complexity entries needed. Code quality enforced via Black + Ruff (see Technical Context), satisfying constitution §Technology documentation requirement.
 
 ---
 
@@ -114,7 +116,8 @@ tests/
 │   └── test_events_public.py       # NEW — public browse/detail contract tests
 ├── integration/
 │   ├── test_user_repository.py     # (existing — 001)
-│   └── test_event_repository.py    # NEW — repository + pagination integration tests
+│   ├── test_event_repository.py    # NEW — repository + pagination integration tests
+│   └── test_event_performance.py   # NEW — performance benchmark (NFR-001 / SC-004)
 └── unit/
     ├── test_auth_service.py        # (existing — 001)
     ├── test_event_service.py       # NEW — service logic unit tests

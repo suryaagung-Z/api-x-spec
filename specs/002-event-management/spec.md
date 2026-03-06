@@ -2,7 +2,7 @@
 
 **Feature Branch**: `[002-event-management]`  
 **Dibuat**: 2026-03-05  
-**Status**: Draft  
+**Status**: Implementation-Ready  
 **Input**: Deskripsi pengguna: "Feature: Event Management - Admin dapat membuat, mengubah, dan menghapus event publik; user dapat melihat daftar event publik dengan pagination dan hanya untuk event yang belum lewat."
 
 ## Clarifications
@@ -82,7 +82,7 @@ Seorang user (baik yang terautentikasi maupun pengunjung dengan hak akses lihat)
 - **FR-003**: Sistem HARUS mengizinkan admin untuk mengedit informasi event (termasuk `title`, `description`, `date`, `registration_deadline`, dan `quota`) meskipun event tersebut sudah memiliki peserta terdaftar, selama perubahan tidak melanggar aturan kuota.
 - **FR-004**: Sistem TIDAK BOLEH menerima perubahan `quota` menjadi nilai yang lebih kecil daripada jumlah peserta yang sudah terdaftar; dalam kasus ini sistem HARUS menolak update dan mengembalikan pesan error yang jelas tanpa mengubah data event.
 - **FR-005**: Sistem HARUS menyediakan kemampuan bagi admin untuk menghapus event publik, termasuk event yang sudah memiliki peserta, dan memastikan event yang dihapus tidak lagi muncul di daftar event publik atau dapat didaftarkan oleh peserta baru.
-- **FR-006**: Sistem HARUS menyediakan cara bagi user untuk mengambil daftar event publik dalam bentuk halaman (pagination), dengan parameter yang memungkinkan penentuan halaman dan ukuran halaman dalam batas yang wajar.
+- **FR-006**: Sistem HARUS menyediakan cara bagi user untuk mengambil daftar event publik dalam bentuk halaman (pagination), dengan parameter yang memungkinkan penentuan halaman dan ukuran halaman dalam batas yang wajar. *(Lihat FR-010 untuk spesifikasi lengkap parameter dan bentuk respons.)*
 - **FR-007**: Sistem HARUS memastikan bahwa daftar event publik yang ditampilkan kepada user hanya berisi event dengan tanggal event yang belum lewat pada saat permintaan dilakukan.
 - **FR-008**: Sistem HARUS menyediakan tampilan atau representasi detail satu event publik yang dapat diakses oleh semua user selama event belum lewat atau belum dihapus admin.
 
@@ -93,15 +93,17 @@ Seorang user (baik yang terautentikasi maupun pengunjung dengan hak akses lihat)
 - **FR-011**: Sistem HARUS menggunakan urutan default daftar event publik berdasarkan `date` secara ascending (event dengan tanggal terdekat muncul lebih dulu), dan jika terdapat event dengan `date` yang sama, hasil diurutkan lagi berdasarkan `title` secara ascending untuk menjamin urutan yang deterministik tanpa pengulangan atau lompatan saat pagination.
 
 - **FR-012**: Sistem HARUS memvalidasi bahwa `registration_deadline` untuk setiap event tidak boleh lebih besar daripada `date` event tersebut. Permintaan pembuatan atau pembaruan event dengan `registration_deadline` yang lebih besar dari `date` HARUS ditolak dengan pesan error yang jelas tanpa mengubah data event yang sudah tersimpan.
+- **FR-013**: Sistem HARUS memvalidasi bahwa `date` event tidak boleh berada di masa lampau pada saat permintaan pembuatan. Permintaan pembuatan event dengan `date` yang sudah lewat HARUS ditolak dengan pesan error yang jelas tanpa mengubah data yang sudah tersimpan.
+- **FR-014**: Sistem HARUS menyediakan endpoint bagi admin untuk mengakses detail satu event berdasarkan ID tanpa filter status, sehingga admin dapat melihat informasi event dengan status apa pun (termasuk yang sudah dihapus) untuk keperluan audit dan manajemen operasional.
 
 ### Non-Functional Requirements
 
-- **NFR-001**: Pengambilan daftar event publik dengan pagination HARUS tetap memberikan pengalaman responsif bagi user (misalnya user merasakan daftar muncul hampir seketika) pada skenario beban normal.
-- **NFR-002**: Sistem penyimpanan data HARUS dioptimalkan sehingga query berdasarkan `date` dan `registration_deadline` tetap memiliki waktu respon yang konsisten meskipun jumlah event publik bertambah besar.
+- **NFR-001**: Pengambilan daftar event publik dengan pagination HARUS diselesaikan dalam kurang dari 1000 ms (p95) pada skenario beban normal dengan jumlah event aktif hingga ribuan.
+- **NFR-002**: Sistem penyimpanan data HARUS dioptimalkan sehingga query berdasarkan `date` dan `registration_deadline` tetap memiliki waktu respon yang konsisten meskipun jumlah event publik bertambah besar. Dipenuhi dengan keberadaan composite index `ix_events_date_title` (pada kolom `date`, `title`) dan index `ix_events_registration_deadline` (pada kolom `registration_deadline`) yang dibuat melalui migrasi Alembic (T005). Tidak diperlukan benchmark terpisah; performa end-to-end divalidasi oleh NFR-001 (SC-004, T031).
 
 ### Key Entities *(sertakan jika fitur melibatkan data)*
 
-- **Event**: Merepresentasikan satu kegiatan publik yang dapat dilihat user. Atribut kunci meliputi identifier unik, `title`, `description`, `date`, `registration_deadline`, `quota`, status (aktif/non-aktif/dihapus), informasi jumlah peserta saat ini, serta indikasi apakah pendaftaran masih dibuka atau sudah ditutup (misalnya field turunan `registration_open`/`registration_closed`).
+- **Event**: Merepresentasikan satu kegiatan publik yang dapat dilihat user. Atribut kunci meliputi identifier unik, `title`, `description`, `date`, `registration_deadline`, `quota`, status (`ACTIVE` atau `DELETED`), informasi jumlah peserta saat ini, serta indikasi apakah pendaftaran masih dibuka atau sudah ditutup (field turunan `registration_closed`).
 - **Participant/Event Registration**: Merepresentasikan hubungan antara user dan event yang diikutinya. Entitas ini menyimpan referensi ke `Event` dan ke identitas peserta, serta digunakan untuk menghitung jumlah peserta yang sedang terdaftar.
 
 ## Success Criteria *(wajib)*
@@ -111,7 +113,7 @@ Seorang user (baik yang terautentikasi maupun pengunjung dengan hak akses lihat)
 - **SC-001**: 100% percobaan pembuatan event publik dengan data valid dalam automated test menghasilkan event baru yang dapat muncul di daftar event publik untuk user (selama tanggal event belum lewat).
 - **SC-002**: 100% percobaan mengubah `quota` menjadi nilai yang lebih kecil daripada jumlah peserta saat ini dalam automated test ditolak dengan pesan error yang jelas dan tanpa perubahan pada data event.
 - **SC-003**: 100% permintaan daftar event publik yang diuji secara otomatis tidak pernah menampilkan event dengan tanggal event yang sudah lewat pada saat permintaan dilakukan.
-- **SC-004**: Pada environment uji yang representatif, setidaknya 95% permintaan daftar event publik (dengan hingga ribuan event aktif) diselesaikan dalam waktu yang dirasakan user sebagai "segera" (misalnya di bawah beberapa detik) pada beban normal.
+- **SC-004**: Pada environment uji yang representatif, setidaknya 95% permintaan daftar event publik (dengan hingga ribuan event aktif) diselesaikan dalam kurang dari 1000 ms (p95) pada beban normal.
 
 ## Assumptions & Dependencies
 

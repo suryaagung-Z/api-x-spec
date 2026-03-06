@@ -2,7 +2,7 @@
 
 **Feature Branch**: `[001-authentication]`  
 **Dibuat**: 2026-03-04  
-**Status**: Draft  
+**Status**: Implementation-Ready  
 **Input**: Deskripsi pengguna: "Authentication system dengan JWT dan role based access"
 
 ## Clarifications
@@ -68,6 +68,7 @@ Sistem memiliki dua role: user dan admin. Admin dapat mengakses endpoint tertent
 - Request ke endpoint terproteksi menggunakan token dengan role user ke endpoint yang hanya boleh diakses admin: sistem harus menolak akses dengan respons otorisasi standar.
 - Token digunakan setelah melewati expiration time yang dikonfigurasi: sistem harus menolak token dan meminta user untuk login kembali.
 - Percobaan login berulang dengan kredensial yang salah: sistem harus mengembalikan error yang konsisten tanpa mengungkap apakah email atau password yang salah.
+- Token secara sintaksis valid dan belum kedaluwarsa, namun claim `sub`-nya menunjuk ke user yang sudah tidak ada di database: sistem harus menolak request dan mengembalikan 401 Unauthorized dengan respons identik dengan kasus token tidak valid lainnya (tanpa mengungkap bahwa user yang dimaksud tidak ditemukan).
 
 ## Requirements *(wajib)*
 
@@ -77,32 +78,41 @@ Sistem memiliki dua role: user dan admin. Admin dapat mengakses endpoint tertent
 - **FR-002**: Sistem HARUS memastikan email bersifat unik; permintaan registrasi dengan email yang sudah terdaftar HARUS ditolak.
 - **FR-003**: Sistem HARUS melakukan hashing password menggunakan bcrypt sebelum menyimpannya dan TIDAK BOLEH menyimpan password dalam bentuk plain text.
 - **FR-004**: Sistem HARUS menyediakan endpoint login yang menerima email dan password, memverifikasi keduanya terhadap data tersimpan, dan menolak login ketika kombinasi tidak valid.
-- **FR-005**: Sistem HARUS mengembalikan JWT access token pada login yang berhasil, yang memuat setidaknya identifier user dan role-nya.
-- **FR-006**: Sistem HARUS mewajibkan penggunaan JWT access token untuk mengakses endpoint terproteksi melalui header HTTP `Authorization` dengan skema `Bearer` (format `Authorization: Bearer <token>`).
+- **FR-005**: Sistem HARUS mengembalikan JWT access token pada login yang berhasil dalam respons JSON yang memuat field `access_token` (string JWT) dan `token_type: "bearer"`, di mana token tersebut minimal memuat identifier user dan role-nya.
+- **FR-006**: Sistem HARUS mewajibkan penggunaan JWT access token untuk mengakses endpoint terproteksi melalui header HTTP `Authorization` dengan skema `Bearer` (format `Authorization: Bearer <token>`); respons 401 pada endpoint terproteksi HARUS menyertakan header HTTP `WWW-Authenticate: Bearer` sesuai RFC 6750. Header ini TIDAK BOLEH disertakan pada respons 403 (authorization failure).
 - **FR-007**: Sistem HARUS mendukung minimal dua role: `user` dan `admin`.
 - **FR-008**: Sistem HARUS membatasi akses ke endpoint tertentu hanya untuk role `admin`; permintaan dari role lain HARUS ditolak dengan error otorisasi.
 - **FR-009**: Sistem HARUS menerapkan expiration time pada JWT sehingga token hanya berlaku dalam rentang waktu tertentu dan token yang kedaluwarsa HARUS ditolak. Nilai default expiration time untuk JWT access token HARUS 60 menit (1 jam) sejak waktu penerbitan, dengan kemungkinan untuk dioverride melalui konfigurasi environment.
 - **FR-010**: Sistem HARUS menggunakan HTTP status code standar yang konsisten untuk semua respons autentikasi dan otorisasi. Minimal: login dengan kredensial salah, request tanpa token, token invalid atau kedaluwarsa HARUS menggunakan 401 Unauthorized; akses endpoint admin-only oleh user ber-role `user` HARUS menggunakan 403 Forbidden; registrasi dengan email yang sudah digunakan HARUS menggunakan 409 Conflict.
 - **FR-011**: Sistem HARUS mengembalikan error response dalam format JSON yang konsisten dengan struktur `{"error": {"code": string, "message": string, "httpStatus": number}}`, sehingga minimal memuat kode error terstruktur, pesan yang dapat dipahami, dan HTTP status yang merefleksikan respons.
 - **FR-012**: JWT access token HARUS ditandatangani menggunakan algoritma HS256 dengan shared secret yang aman dan minimal memuat claim `sub` (identifier user unik), `role`, `iat`, dan `exp`.
+- **FR-013**: Password yang dikirimkan pada endpoint registrasi HARUS memiliki panjang minimum 8 karakter dan maksimum 72 karakter. Batasan maksimum 72 karakter berasal dari batasan teknis bcrypt (byte ke-73 dan seterusnya diabaikan oleh algoritma); nilai di luar rentang ini HARUS ditolak melalui validasi input sebelum hashing dilakukan, dengan mengembalikan respons error yang konsisten.
+- **FR-014**: Sistem HARUS menyediakan endpoint `GET /auth/me` yang mengembalikan data profil user yang sedang terautentikasi (`UserRead`) sebagai implementasi konkret endpoint terproteksi dari US2 — endpoint ini memerlukan JWT yang valid dengan role apa pun (`user` atau `admin`); respons 401 HARUS menyertakan header `WWW-Authenticate: Bearer` sesuai FR-006.
+
+### Non-Functional Requirements
+
+- **NFR-001**: Setidaknya 95% pengguna baru yang mengisi name, email, dan password yang valid dapat menyelesaikan registrasi dan login pertama kali dalam waktu kurang dari 5 detik pada beban normal (≤50 concurrent users, ≤20 RPS pada hardware server standar — referensi: 2-core CPU, 4 GB RAM atau setara VM cloud). Diverifikasi melalui load test pada fase polish (SC-001, T041).
+- **NFR-002**: Validasi JWT (decode + verifikasi signature) pada endpoint terproteksi HARUS selesai dalam waktu kurang dari 200 ms pada persentil ke-95 (p95) di bawah beban normal sebagaimana didefinisikan di NFR-001. Diverifikasi dengan `pytest --benchmark-only` pada fase polish (SC-005, T041).
 
 ### Key Entities *(sertakan jika fitur melibatkan data)*
 
-- **User**: Merepresentasikan akun individu yang dapat melakukan autentikasi. Atribut kunci meliputi identifier unik, name, email (unik), password yang sudah di-hash (bcrypt), status aktivasi, dan role.
+- **User**: Merepresentasikan akun individu yang dapat melakukan autentikasi. Atribut kunci meliputi identifier unik, name, email (unik), password yang sudah di-hash (bcrypt), dan role. *(Catatan: status aktivasi dan fitur manajemen akun lanjutan berada di luar cakupan fitur ini — lihat Assumptions & Dependencies.)*
 - **Role**: Merepresentasikan kelompok permission bernama (`user` dan `admin`). Role dikaitkan dengan user dan menentukan endpoint/operator mana yang boleh diakses.
-- **Auth Token (JWT)**: Merepresentasikan JWT access token yang diterbitkan saat login berhasil dan digunakan pada request ke endpoint terproteksi. Token ini mengenkapsulasi identitas user, informasi role, dan expiration time, serta dapat diverifikasi integritasnya. JWT HARUS ditandatangani menggunakan algoritma HS256 (shared secret) dan minimal memuat claim `sub` (identifier user unik), `role`, `iat`, dan `exp`.
+- **Auth Token (JWT)**: Merepresentasikan JWT access token yang diterbitkan saat login berhasil dan digunakan pada request ke endpoint terproteksi. Token ini mengenkapsulasi identitas user, informasi role, dan expiration time, serta dapat diverifikasi integritasnya. Lihat FR-012 untuk spesifikasi algoritma signing dan required claims.
 
 ## Success Criteria *(wajib)*
 
 ### Measurable Outcomes
 
-- **SC-001**: Setidaknya 95% pengguna baru yang mengisi name, email, dan password yang valid dapat menyelesaikan registrasi dan login pertama kali dalam waktu kurang dari 5 detik pada beban normal.
+- **SC-001**: Diverifikasi melalui load test per threshold NFR-001 — ≥95% request registrasi dan login selesai dalam < 5 detik pada beban normal (≤50 concurrent users, ≤20 RPS, hardware referensi NFR-001). Perintah: lihat T041.
 - **SC-002**: 100% percobaan registrasi dengan email yang sudah terdaftar dalam automated test menghasilkan penolakan dengan HTTP status code standar dan error JSON yang konsisten yang menjelaskan konflik email.
 - **SC-003**: 100% request ke endpoint terproteksi tanpa token, dengan token kedaluwarsa, atau dengan token yang tidak valid dalam automated test ditolak tanpa mengekspos detail teknis sensitif dalam body JSON.
 - **SC-004**: 100% request ke endpoint admin-only yang dikirim dengan JWT ber-role `user` dalam automated test ditolak, sementara request dengan JWT ber-role `admin` berhasil.
+- **SC-005**: Diverifikasi per threshold NFR-002 — validasi JWT < 200ms p95 pada `GET /auth/me`. Perintah: `pytest --benchmark-only -k test_get_me_valid_token` (lihat T041).
 
 ## Assumptions & Dependencies
 
 - Implementasi detail penyimpanan data (misalnya jenis database) dan pemilihan library konkret untuk bcrypt dan JWT akan ditentukan pada tahap perencanaan teknis, namun harus mendukung requirement di atas.
 - Integrasi dengan sistem manajemen pengguna yang lebih luas (misalnya manajemen profil lanjutan, verifikasi email, atau pemulihan password) berada di luar cakupan fitur ini kecuali secara eksplisit ditambahkan.
 - Kebijakan keamanan tambahan (misalnya kewajiban compliance atau regulasi perlindungan data) dapat memengaruhi nilai default expiration time token serta detail isi error message, dan akan dikonfirmasi dengan stakeholder keamanan.
+- Pembuatan akun admin awal dilakukan melalui script seed out-of-band (bukan melalui endpoint registrasi, yang secara default selalu mengassign role `user`). Lihat T040 (`scripts/seed_admin.py`) untuk implementasi seed script dan `quickstart.md` untuk panduan penggunaannya.

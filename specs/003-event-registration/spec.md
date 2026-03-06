@@ -51,11 +51,11 @@ Seorang user mencoba mendaftar ke event publik, tetapi kondisi event tidak lagi 
 
 ### User Story 3 - User membatalkan pendaftaran event (Prioritas: P2)
 
-Seorang user yang sudah terdaftar sebagai peserta suatu event publik memutuskan untuk batal mengikuti event tersebut. Ia mengirimkan permintaan pembatalan pendaftaran. Sistem harus menghapus data pendaftarannya dan mengurangi jumlah peserta event sehingga kuota kembali tersedia untuk peserta lain (selama ketentuan waktu pendaftaran dan kebijakan event mendukung hal ini).
+Seorang user yang sudah terdaftar sebagai peserta suatu event publik memutuskan untuk batal mengikuti event tersebut. Ia mengirimkan permintaan pembatalan pendaftaran. Sistem harus mengubah status pendaftarannya menjadi `dibatalkan` dan mengurangi jumlah peserta aktif event sehingga kuota kembali tersedia untuk peserta lain (selama ketentuan waktu pendaftaran mendukung hal ini; record pendaftaran tetap tersimpan — soft delete).
 
 **Alasan prioritas ini**: Pembatalan pendaftaran memberikan fleksibilitas bagi user dan memungkinkan kuota dimanfaatkan oleh peserta lain, meningkatkan pemakaian kapasitas event.
 
-**Independent Test**: Story ini dapat diuji secara mandiri dengan menyiapkan user yang sudah terdaftar pada suatu event, lalu mengirimkan permintaan pembatalan dan memverifikasi bahwa data pendaftaran user terhapus dan jumlah peserta event berkurang satu.
+**Independent Test**: Story ini dapat diuji secara mandiri dengan menyiapkan user yang sudah terdaftar pada suatu event, lalu mengirimkan permintaan pembatalan dan memverifikasi bahwa status record Event Registration berubah menjadi `dibatalkan` (soft delete — record tetap ada) dan jumlah peserta aktif event berkurang satu.
 
 **Acceptance Scenarios**:
 
@@ -78,7 +78,7 @@ Seorang user yang sudah terdaftar sebagai peserta suatu event publik memutuskan 
 
 - **FR-001**: Sistem HARUS menyediakan kemampuan bagi user untuk mendaftar ke event publik yang valid, belum melewati `registration_deadline`, dan belum mencapai kuota penuh.
 - **FR-002**: Sistem HARUS menolak pendaftaran ketika event yang diminta tidak ditemukan dan mengembalikan pesan error yang menjelaskan bahwa event tidak tersedia.
-- **FR-003**: Sistem HARUS menolak pendaftaran ketika `registration_deadline` event sudah lewat dan mengembalikan pesan error yang menjelaskan bahwa periode pendaftaran sudah berakhir.
+- **FR-003**: Sistem HARUS menolak pendaftaran ketika `registration_deadline` event sudah lewat dan mengembalikan pesan error yang menjelaskan bahwa periode pendaftaran sudah berakhir. Batas waktu bersifat tertutup (*closed boundary*): kondisi `datetime.now(UTC) >= registration_deadline` dianggap sudah lewat dan permintaan ditolak, termasuk saat nilai `now` tepat sama dengan `registration_deadline`.
 - **FR-004**: Sistem HARUS menolak pendaftaran ketika jumlah peserta saat ini sudah mencapai kuota event dan mengembalikan pesan error yang menjelaskan bahwa kuota sudah penuh.
 - **FR-005**: Sistem HARUS menolak pendaftaran ganda untuk kombinasi user dan event yang sama hanya jika sudah terdapat record berstatus `aktif` untuk kombinasi tersebut; jika record sebelumnya berstatus `dibatalkan`, pendaftaran baru HARUS diperbolehkan selama syarat lain (deadline belum lewat, kuota tersedia) terpenuhi.
 - **FR-006**: Sistem HARUS memastikan bahwa setiap proses pendaftaran yang berhasil menambah jumlah peserta event secara konsisten dan tidak menyebabkan jumlah peserta melebihi kuota, bahkan dalam kondisi banyak pendaftaran terjadi hampir bersamaan.
@@ -86,7 +86,7 @@ Seorang user yang sudah terdaftar sebagai peserta suatu event publik memutuskan 
 - **FR-008**: Sistem HARUS mengubah status record Event Registration menjadi `dibatalkan` (soft delete) ketika pembatalan berhasil, dan jumlah peserta aktif event HARUS berkurang satu sehingga kuota kembali tersedia; record pembatalan tetap disimpan dan tidak dihapus secara permanen.
 - **FR-009**: Sistem TIDAK BOLEH menyediakan kepada user biasa kemampuan untuk melihat daftar lengkap peserta suatu event (misalnya nama atau identitas peserta lain), guna menjaga privasi peserta.
 - **FR-010**: Sistem HARUS menyediakan kemampuan bagi user untuk mengambil daftar Event Registration miliknya sendiri, termasuk record berstatus `aktif` maupun `dibatalkan`, dan memastikan bahwa user hanya dapat melihat record miliknya sendiri.
-- **FR-011**: Sistem HARUS menggunakan HTTP status code berikut untuk setiap skenario penolakan pendaftaran dan pembatalan: event tidak ditemukan → 404 Not Found; `registration_deadline` sudah lewat atau kuota penuh atau permintaan pembatalan setelah `registration_deadline` → 422 Unprocessable Entity; user sudah memiliki pendaftaran aktif untuk event yang sama (duplikasi) → 409 Conflict; tidak ada pendaftaran aktif untuk dibatalkan → 404 Not Found.
+- **FR-011**: Sistem HARUS menggunakan HTTP status code berikut untuk setiap skenario penolakan pendaftaran dan pembatalan: event tidak ditemukan (pendaftaran maupun pembatalan) → 404 Not Found; `registration_deadline` sudah lewat atau kuota penuh atau permintaan pembatalan setelah `registration_deadline` → 422 Unprocessable Entity; user sudah memiliki pendaftaran aktif untuk event yang sama (duplikasi) → 409 Conflict; tidak ada pendaftaran aktif untuk dibatalkan → 404 Not Found.
 
 ### Non-Functional Requirements
 
@@ -95,7 +95,7 @@ Seorang user yang sudah terdaftar sebagai peserta suatu event publik memutuskan 
 
 ### Key Entities *(sertakan jika fitur melibatkan data)*
 
-- **Event Registration**: Merepresentasikan satu pendaftaran user ke sebuah event publik. Entitas ini menghubungkan `user` dengan `event`, menyimpan status pendaftaran (`aktif` / `dibatalkan`), dan hanya record berstatus `aktif` yang dihitung dalam jumlah peserta event serta diperhitungkan dalam validasi kuota. Record tidak pernah dihapus secara permanen (soft delete).
+- **Event Registration**: Merepresentasikan satu pendaftaran user ke sebuah event publik. Entitas ini menghubungkan `user` dengan `event`, menyimpan status pendaftaran (`aktif` / `dibatalkan` — disimpan sebagai nilai string `'active'` / `'cancelled'` sesuai enum `RegistrationStatus` pada implementasi), dan hanya record berstatus `aktif` yang dihitung dalam jumlah peserta event serta diperhitungkan dalam validasi kuota. Record tidak pernah dihapus secara permanen (soft delete).
 - **Event**: Entitas event publik yang sudah didefinisikan pada spesifikasi Event Management dan menyediakan informasi kuota, batas waktu pendaftaran, dan jumlah peserta saat ini yang digunakan dalam validasi pendaftaran.
 
 ## Success Criteria *(wajib)*
@@ -104,12 +104,12 @@ Seorang user yang sudah terdaftar sebagai peserta suatu event publik memutuskan 
 
 - **SC-001**: 100% percobaan pendaftaran ke event yang memenuhi semua syarat (event ditemukan, belum lewat `registration_deadline`, kuota masih tersedia, dan user belum terdaftar) dalam automated test menghasilkan pendaftaran yang berhasil dan tercatat sebagai peserta event.
 - **SC-002**: 100% percobaan pendaftaran yang melanggar salah satu kondisi (event tidak ditemukan, lewat `registration_deadline`, kuota penuh, atau user sudah terdaftar) dalam automated test ditolak dan tidak menambah jumlah peserta event.
-- **SC-003**: 100% percobaan pembatalan pendaftaran yang valid dalam automated test menghapus data pendaftaran user dan mengurangi jumlah peserta event sesuai harapan.
+- **SC-003**: 100% percobaan pembatalan pendaftaran yang valid dalam automated test menghasilkan status record Event Registration berubah menjadi `dibatalkan` dan jumlah peserta aktif event berkurang satu sesuai harapan (soft delete — record tetap tersimpan dan tidak dihapus secara permanen).
 - **SC-004**: Dalam skenario uji dengan pendaftaran paralel ke event dengan kuota terbatas, tidak ada kasus di mana jumlah peserta akhir melampaui kuota yang ditentukan.
 
 ## Assumptions & Dependencies
 
-- Fitur ini bergantung pada spesifikasi Event Management (003-event-registration mengasumsikan bahwa entitas Event sudah memiliki informasi kuota, jumlah peserta saat ini, dan `registration_deadline`).
+- Fitur ini bergantung pada spesifikasi **002-event-management** (yang menyediakan entitas Event dengan informasi kuota, jumlah peserta saat ini, dan `registration_deadline` yang digunakan dalam validasi pendaftaran).
 - Mekanisme autentikasi dan otorisasi mengikuti spesifikasi `001-authentication`, sehingga hanya user yang teridentifikasi yang dapat melakukan pendaftaran dan pembatalan pendaftaran event atas nama dirinya sendiri.
-- Kebijakan bisnis terkait apakah pembatalan boleh dilakukan setelah `registration_deadline` atau mendekati waktu event akan disepakati pada tahap perencanaan, selama implementasi tetap memenuhi requirement tentang konsistensi kuota dan data pendaftaran.
-- Detail teknis terkait bentuk API, jenis database, atau teknik konkret untuk menjaga konsistensi data (misalnya penggunaan transaksi atau mekanisme sinkronisasi lain) akan ditentukan pada desain teknis, selama tetap menjamin tidak terjadi overbooking dan duplikasi pendaftaran.
+- Kebijakan pembatalan telah disepakati (lihat Clarifications 2026-03-05): pembatalan hanya diperbolehkan selama `registration_deadline` belum lewat; permintaan pembatalan setelah batas waktu tersebut ditolak (FR-007, kode 422).
+- Detail teknis telah ditetapkan dalam plan.md: PostgreSQL 15+ dengan SQLAlchemy 2.x async, atomic UPDATE untuk manajemen kuota (`UPDATE events SET current_participants + 1 WHERE current_participants < quota RETURNING id`), dan partial unique index `uq_active_registration (user_id, event_id) WHERE status='active'` untuk pencegahan duplikasi aktif.

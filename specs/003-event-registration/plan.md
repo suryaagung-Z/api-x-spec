@@ -25,9 +25,10 @@ Event registration feature that allows authenticated users to register for publi
 **Testing**: pytest + pytest-asyncio + httpx AsyncClient
 **Target Platform**: Linux server
 **Project Type**: web-service (HTTP API, REST)
-**Performance Goals**: SC-004 — no overbooking under parallel registrations; individual request p95 within user-perceptible "fast" range at normal load
+**Performance Goals**: SC-004 — no overbooking under parallel registrations; individual registration/cancellation request **p95 < 300ms** at expected concurrent load (non-blocking aspiration; no load test required for MVP, but implementation MUST NOT introduce unnecessary blocking I/O)
 **Constraints**: Quota never exceeded (even under concurrency); `registration_deadline` enforced for both registration and cancellation; soft delete only; user can only see own registrations
 **Scale/Scope**: Depends on 001-authentication (user identity, JWT) and 002-event-management (Event entity, EventStatus, EventNotFoundError)
+**Cross-Feature Schema Impact**: This feature adds `current_participants` (INTEGER, NOT NULL DEFAULT 0) to the `events` table originally defined in 002-event-management. This is a backward-compatible additive change; no 002 behavior is removed or altered. The column is introduced by migration T006 (`yyyy_add_event_registrations_table.py`) with a safe DEFAULT so existing rows are not broken.
 
 ---
 
@@ -38,6 +39,7 @@ Event registration feature that allows authenticated users to register for publi
 ### Gate 1 — Stack Alignment ✅
 Python 3.11+ · FastAPI · SQLAlchemy 2.x async · Alembic 1.13 · Pydantic v2 · pydantic-settings.
 No new libraries introduced. All choices are mainstream and actively maintained. asyncpg concurrency behavior (row-level locking via atomic UPDATE) is well-documented and widely used.
+**Formatter**: black · **Linter**: ruff (extends the 001/002 toolchain; formatting and lint enforcement is tracked in T029).
 
 ### Gate 2 — Clean Architecture ✅
 Layer boundaries consistent with 001 and 002:

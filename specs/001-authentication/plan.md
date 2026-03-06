@@ -24,8 +24,9 @@ Tech stack: Python 3.11 · FastAPI · SQLAlchemy 2.x async · Alembic · PyJWT 2
 **Target Platform**: Linux server  
 **Project Type**: web-service (REST API)  
 **Performance Goals**: ≥95% of register+login flows complete in <5 s under normal load (SC-001)  
-**Constraints**: <200ms p95 for token validation; bcrypt hashing ~250ms (rounds=12) is acceptable on the login path  
+**Constraints**: <200ms p95 for token validation (→ SC-005 in spec.md); bcrypt hashing ~250ms (rounds=12) is acceptable on the login path  
 **Scale/Scope**: Initial; scales to support growing user base with PostgreSQL in prod
+**Code Quality Tooling**: Black (formatter) + Ruff (linter) + mypy --strict; both MUST be applied to all new modules. CI gate: `black --check src/ tests/` and `ruff check src/ tests/`. Configured in `pyproject.toml` (T004). Satisfies constitution §Technology "MUST be documented in the plan or project README" requirement.
 
 ## Constitution Check
 
@@ -39,6 +40,19 @@ Tech stack: Python 3.11 · FastAPI · SQLAlchemy 2.x async · Alembic · PyJWT 2
 | **Simplicity & observability** | ✅ PASS | Single project, no extra services; structured logging via Python `logging`; no extra abstraction layers beyond the standard clean-arch split |
 
 **No violations** — no Complexity Tracking entries required.
+
+## Phases Overview
+
+| Phase | Name | Purpose |
+|---|---|---|
+| Phase 1 | Setup | Initialize project skeleton, toolchain, and configuration files |
+| Phase 2 | Foundational | Domain models, infra adapters, DB schema, app wiring — **blocks all user stories** |
+| Phase 3 | User Story 1 (P1) | Registration with bcrypt password storage and email uniqueness enforcement |
+| Phase 4 | User Story 2 (P1) | Login, JWT issuance, and protected endpoint access (`GET /auth/me`) |
+| Phase 5 | User Story 3 (P2) | Admin RBAC — role-gated endpoint enforcement (`GET /admin/users`) |
+| Phase 6 | Polish | Observability, security hardening, and performance verification |
+
+See `tasks.md` for detailed task breakdown and dependency order.
 
 ## Project Structure
 
@@ -107,6 +121,8 @@ pyproject.toml      # dependencies, black/ruff/mypy config
 
 **Structure Decision**: Single project layout (Option 1) — clean-arch split within `src/`.
 No separate services or packages needed for a self-contained auth module.
+
+**Composition Root**: `src/main.py` — FastAPI app factory, `Settings` injection via `pydantic-settings`, domain exception handler registration (`EmailAlreadyExistsError` → 409, `InvalidCredentialsError` → 401, `UserNotFoundError` → 401, `RequestValidationError` → 422), and router mounting (`/auth`, `/admin`). All dependency wiring flows outward from this module.
 
 ## Complexity Tracking
 

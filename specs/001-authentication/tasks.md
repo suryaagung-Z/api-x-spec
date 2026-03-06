@@ -23,9 +23,9 @@ testing. US1 and US2 are both P1; US3 is P2.
 **Purpose**: Initialize project skeleton, toolchain, and configuration files.
 
 - [ ] T001 Create full directory structure per plan.md (`src/api/routers/`, `src/api/schemas/`, `src/api/dependencies/`, `src/application/`, `src/domain/`, `src/infrastructure/db/`, `src/infrastructure/repositories/`, `src/infrastructure/auth/`, `tests/unit/`, `tests/integration/`, `tests/contract/`, `alembic/`)
-- [ ] T002 Initialize `pyproject.toml` with all dependencies: `fastapi`, `uvicorn[standard]`, `sqlalchemy[asyncio]`, `alembic`, `PyJWT`, `bcrypt`, `pydantic-settings`, `aiosqlite`, `asyncpg`; dev deps: `pytest`, `pytest-asyncio`, `httpx`, `black`, `ruff`, `mypy`
-- [ ] T003 [P] Create `.env.example` with `JWT_SECRET_KEY`, `JWT_ALGORITHM=HS256`, `JWT_ACCESS_TOKEN_EXPIRE_MINUTES=60`, `DATABASE_URL=sqlite+aiosqlite:///./dev.db`
-- [ ] T004 [P] Configure `black`, `ruff`, and `mypy` tool sections in `pyproject.toml`; add `conftest.py` stubs at `tests/conftest.py`
+- [ ] T002 Initialize `pyproject.toml` with all dependencies: `fastapi`, `uvicorn[standard]`, `sqlalchemy[asyncio]`, `alembic`, `PyJWT`, `bcrypt`, `pydantic-settings`, `aiosqlite`, `asyncpg`; dev deps: `pytest`, `pytest-asyncio`, `httpx`, `black`, `ruff`, `mypy`, `pytest-benchmark`, `locust` (last two required by T041 for SC-001/SC-005 performance verification)
+- [ ] T003 [P] Create `.env.example` with `JWT_SECRET_KEY`, `JWT_ACCESS_TOKEN_EXPIRE_MINUTES=60`, `DATABASE_URL=sqlite+aiosqlite:///./dev.db` (do NOT include `JWT_ALGORITHM` — the algorithm is hardcoded to `HS256` in code and MUST NOT be configurable via env var)
+- [ ] T004 [P] Configure `black`, `ruff`, and `mypy` tool sections in `pyproject.toml`; implement shared async pytest fixtures in `tests/conftest.py`: async `test_client` fixture (in-memory `aiosqlite` DB, creates all tables, tears down after test), `create_user(client, *, name, email, password, role)` async helper (calls `POST /auth/register` then sets role directly via DB for admin), `user_auth_headers(client)` and `admin_auth_headers(client)` fixtures that register+login a `user`-role and `admin`-role user respectively and return `{"Authorization": "Bearer <token>"}` dicts — required by T017, T025, and T033
 
 ---
 
@@ -37,18 +37,18 @@ app wiring that all three stories depend on.
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T005 Implement `User` dataclass and `UserRole` enum (`user`, `admin`) in `src/domain/models.py` with fields: `id`, `name`, `email`, `hashed_password`, `role`, `is_active`, `created_at`
+- [ ] T005 Implement `User` dataclass and `UserRole` enum (`user`, `admin`) in `src/domain/models.py` with fields: `id`, `name`, `email`, `hashed_password`, `role`, `created_at` (note: `is_active` is out of scope for this feature — omit)
 - [ ] T006 [P] Implement domain exceptions in `src/domain/exceptions.py`: `EmailAlreadyExistsError`, `InvalidCredentialsError`, `UserNotFoundError`
 - [ ] T007 [P] Implement password utilities in `src/infrastructure/auth/password.py`: `hash_password()` (bcrypt 5.x, `rounds=12`) and `verify_password()` with dummy-hash timing-safe path for unknown users
-- [ ] T008 [P] Implement JWT utilities in `src/infrastructure/auth/jwt.py`: `create_access_token(sub, role)` (HS256, claims `sub`/`role`/`iat`/`exp`, default 60-min expiry) and `decode_token(token)` enforcing `algorithms=["HS256"]` and required claims
-- [ ] T009 Implement SQLAlchemy 2.x ORM `User` model in `src/infrastructure/db/models.py` with all columns, `CHECK` constraint on `role`, `UNIQUE` on `email`; inherits from `DeclarativeBase` with `AsyncAttrs`
+- [ ] T008 [P] Implement JWT utilities in `src/infrastructure/auth/jwt.py`: `create_access_token(sub, role)` (hardcode `algorithm="HS256"` directly in code — NOT read from `Settings` or any env var; claims `sub`/`role`/`iat`/`exp`; expiry from `settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES`) and `decode_token(token)` enforcing `algorithms=["HS256"]` as an explicit allowlist (rejects `alg=none` and any other algorithm)
+- [ ] T009 Implement SQLAlchemy 2.x ORM `User` model in `src/infrastructure/db/models.py` with all columns, `CHECK` constraint on `role`, `UNIQUE` on `email`; inherits from `DeclarativeBase` with `AsyncAttrs`; add `__table_args__` with `Index("ix_users_email_lower", func.lower(User.email), unique=True)` for case-insensitive email uniqueness enforcement at DB layer (matches data-model.md functional index)
 - [ ] T010 Implement async DB session factory in `src/infrastructure/db/session.py`: `create_async_engine`, `async_sessionmaker(expire_on_commit=False)`, `get_db()` dependency with commit/rollback lifecycle
 - [ ] T011 Configure Alembic for async SQLAlchemy in `alembic/env.py` using `run_sync` pattern; set `target_metadata` to ORM `Base.metadata`
 - [ ] T012 Generate initial Alembic migration for `users` table in `alembic/versions/` via `alembic revision --autogenerate -m "create_users_table"`; verify generated SQL matches `data-model.md` schema
-- [ ] T013 Implement `UserRepository` in `src/infrastructure/repositories/user_repository.py`: `get_by_email(email)`, `get_by_id(user_id)`, `create(name, email, hashed_password, role)` using `AsyncSession`
+- [ ] T013 Implement `UserRepository` in `src/infrastructure/repositories/user_repository.py`: `get_by_email(email)` (normalize input with `email.lower()` before querying to support case-insensitive login lookups), `get_by_id(user_id)`, `create(name, email, hashed_password, role)`, `get_all()` (returns `list[User]`, used by `GET /admin/users`) using `AsyncSession`
 - [ ] T014 [P] Implement Pydantic v2 API schemas in `src/api/schemas/auth.py`: `RegisterRequest` (name, email `EmailStr`, password min=8 max=72), `LoginRequest`, `TokenResponse`, `UserRead` (with `ConfigDict(from_attributes=True)`)
 - [ ] T015 [P] Implement error envelope schemas in `src/api/schemas/errors.py`: `ErrorDetail` (code, message, httpStatus) and `ErrorEnvelope`; matches `contracts/error-envelope.md`
-- [ ] T016 Implement FastAPI app factory in `src/main.py`: create `app`, load `pydantic-settings` `Settings`, register domain exception handlers (`EmailAlreadyExistsError` → 409, `InvalidCredentialsError` → 401, `UserNotFoundError` → 401, all using `ErrorEnvelope`), include routers placeholder
+- [ ] T016 Implement FastAPI app factory in `src/main.py`: create `app`, load `pydantic-settings` `Settings`, register domain exception handlers: `EmailAlreadyExistsError` → 409 `ErrorEnvelope`; `InvalidCredentialsError` → 401 `ErrorEnvelope` with `headers={"WWW-Authenticate": "Bearer"}`; `UserNotFoundError` → 401 `ErrorEnvelope` with `headers={"WWW-Authenticate": "Bearer"}`; register `@app.exception_handler(RequestValidationError)` → 422 `ErrorEnvelope(code="VALIDATION_ERROR", httpStatus=422)` (satisfies FR-011 for all error paths including Pydantic validation failures); include routers placeholder
 
 **Checkpoint**: Foundation ready — domain, infra, DB schema, app wiring all in place. User story implementation can now begin.
 
@@ -66,13 +66,13 @@ then register again with the same email (→ 409 `EMAIL_ALREADY_EXISTS` JSON err
 
 > **Write these tests FIRST — they MUST FAIL before any implementation below**
 
-- [ ] T017 [P] [US1] Write contract tests for `POST /auth/register` in `tests/contract/test_register.py`: success 201 returns `UserRead` with no password field; duplicate email returns 409 `ErrorEnvelope` with `code="EMAIL_ALREADY_EXISTS"`
-- [ ] T018 [P] [US1] Write integration tests for `UserRepository` in `tests/integration/test_user_repository.py`: `create()` persists user; `get_by_email()` returns user or None; second `create()` with same email raises `EmailAlreadyExistsError`
+- [ ] T017 [P] [US1] Write contract tests for `POST /auth/register` in `tests/contract/test_register.py`: success 201 returns `UserRead` with no `password` field and no `is_active` field; duplicate email returns 409 `ErrorEnvelope` with `code="EMAIL_ALREADY_EXISTS"`; re-registration with the same email in a different case (e.g., `User@Example.com` after registering `user@example.com`) also returns 409 (verifies case-insensitive uniqueness from C3); password of 7 characters returns 422 `ErrorEnvelope` with `code="VALIDATION_ERROR"` (FR-013 lower boundary); password of 73 characters returns 422 `ErrorEnvelope` with `code="VALIDATION_ERROR"` (FR-013 upper boundary)
+- [ ] T018 [P] [US1] Write integration tests for `UserRepository` in `tests/integration/test_user_repository.py`: `create()` persists user and stores email as lowercase; `get_by_email()` returns user or None; `get_by_email()` with mixed-case email finds the same user (case-insensitive lookup); second `create()` with same email raises `EmailAlreadyExistsError`; `create()` with same email in different case (e.g., `User@Example.com`) also raises `EmailAlreadyExistsError` (case-insensitive enforcement — C3)
 - [ ] T019 [P] [US1] Write unit tests for `hash_password` / `verify_password` in `tests/unit/test_password.py`: hash differs from plain text; verify returns True for correct password, False for wrong; verify does not raise for unknown user (timing-safe dummy path)
 
 ### Implementation for User Story 1
 
-- [ ] T020 [US1] Implement `register(name, email, password)` use case in `src/application/auth_service.py`: check email uniqueness via `UserRepository`, hash password, persist user, return domain `User`
+- [ ] T020 [US1] Implement `register(name, email, password)` use case in `src/application/auth_service.py`: normalize email to lowercase (`email = email.lower()`) before uniqueness check and persistence (application-layer enforcement of case-insensitive uniqueness per data-model.md); check uniqueness via `UserRepository.get_by_email()`; raise `EmailAlreadyExistsError` on conflict; hash password via `hash_password()`; persist via `UserRepository.create()`; return domain `User`
 - [ ] T021 [P] [US1] Write unit tests for `auth_service.register()` in `tests/unit/test_auth_service.py`: successful registration; raises `EmailAlreadyExistsError` on duplicate email; password is hashed not stored plain
 - [ ] T022 [US1] Implement `POST /auth/register` endpoint in `src/api/routers/auth.py`: call `auth_service.register()`, respond 201 `UserRead`; mount router on app in `src/main.py`
 - [ ] T023 [US1] Verify `EmailAlreadyExistsError` → 409 exception handler in `src/main.py` returns `ErrorEnvelope` with `code="EMAIL_ALREADY_EXISTS"` and `httpStatus=409`; confirm 422 Pydantic validation errors also use `ErrorEnvelope` shape
@@ -93,18 +93,18 @@ a valid token are rejected with 401 and a consistent JSON error.
 
 > **Write these tests FIRST — they MUST FAIL before any implementation below**
 
-- [ ] T024 [P] [US2] Write contract tests for `POST /auth/login` in `tests/contract/test_login.py`: correct credentials return 200 `TokenResponse` with `token_type="bearer"`; wrong password returns 401 `UNAUTHORIZED`; unknown email returns 401 (same message — no enumeration)
+- [ ] T024 [P] [US2] Write contract tests for `POST /auth/login` in `tests/contract/test_login.py`: correct credentials return 200 `TokenResponse` with `token_type="bearer"`; wrong password returns 401 `UNAUTHORIZED` with `WWW-Authenticate: Bearer` response header (per FR-006 and openapi.yaml); unknown email returns 401 with same message and same `WWW-Authenticate: Bearer` header (no enumeration)
 - [ ] T025 [P] [US2] Write contract tests for `GET /auth/me` in `tests/contract/test_protected.py`: valid token returns 200 `UserRead`; missing `Authorization` header returns 401; malformed token returns 401; expired token (manipulated `exp`) returns 401; all 401 responses include `WWW-Authenticate: Bearer` header
 - [ ] T026 [P] [US2] Write unit tests for JWT utilities in `tests/unit/test_jwt.py`: `create_access_token` encodes `sub`, `role`, `iat`, `exp`; `decode_token` returns payload; expired token raises; tampered signature raises; `alg=none` rejected
 
 ### Implementation for User Story 2
 
-- [ ] T027 [US2] Implement `login(email, password)` use case in `src/application/auth_service.py`: fetch user by email via `UserRepository`, run `verify_password` (including dummy-hash path for unknown email), raise `InvalidCredentialsError` on any mismatch, call `create_access_token(sub=user.id, role=user.role)` and return token string
-- [ ] T028 [P] [US2] Write unit tests for `auth_service.login()` in `tests/unit/test_auth_service.py`: successful login returns token string; wrong password raises `InvalidCredentialsError`; unknown email raises `InvalidCredentialsError` (same exception — no enumeration)
+- [ ] T027 [US2] Implement `login(email, password)` use case in `src/application/auth_service.py`: normalize input email with `email = email.lower()` before calling `UserRepository.get_by_email()` (ensures mixed-case logins match stored lowercase emails — C6); run `verify_password` (including dummy-hash path for unknown email), raise `InvalidCredentialsError` on any mismatch, call `create_access_token(sub=user.id, role=user.role)` and return token string
+- [ ] T028 [P] (after T021) [US2] Write unit tests for `auth_service.login()` in `tests/unit/test_auth_service.py`: successful login returns token string; wrong password raises `InvalidCredentialsError`; unknown email raises `InvalidCredentialsError` (same exception — no enumeration)
 - [ ] T029 [US2] Implement `get_current_user()` async dependency in `src/api/dependencies/auth.py`: extract Bearer token via `OAuth2PasswordBearer`, call `decode_token()`, look up user via `UserRepository.get_by_id()`, raise `HTTPException(401, headers={"WWW-Authenticate": "Bearer"})` on any failure (invalid token, expired, tampered, user not found)
 - [ ] T030 [US2] Implement `POST /auth/login` endpoint in `src/api/routers/auth.py`: call `auth_service.login()`, return `TokenResponse`
 - [ ] T031 [US2] Implement `GET /auth/me` endpoint in `src/api/routers/auth.py` with `Depends(get_current_user)`, return `UserRead`
-- [ ] T032 [US2] Verify `InvalidCredentialsError` and `UserNotFoundError` → 401 handlers in `src/main.py` return `ErrorEnvelope` with `code="UNAUTHORIZED"` and `httpStatus=401`; confirm generic message that does not reveal email vs. password distinction
+- [ ] T032 [US2] Verify `InvalidCredentialsError` and `UserNotFoundError` → 401 handlers in `src/main.py` return `ErrorEnvelope` with `code="UNAUTHORIZED"` and `httpStatus=401`; confirm all 401 responses (including login path) include `WWW-Authenticate: Bearer` response header per FR-006; confirm generic message that does not reveal email vs. password distinction
 
 **Checkpoint**: Login and protected endpoint fully functional — JWT issued on login, `GET /auth/me` accepts/rejects tokens correctly, all T024–T026 tests pass.
 
@@ -143,6 +143,8 @@ token returns 403 `FORBIDDEN` → without token returns 401 `UNAUTHORIZED`.
 - [ ] T037 [P] Add structured logging via Python `logging` to `src/application/auth_service.py` (register success/failure, login success/failure) and `src/api/routers/auth.py` (request-level info); ensure no sensitive data (passwords, tokens) appears in logs
 - [ ] T038 [P] Run full test suite (`pytest --cov=src --cov-report=term-missing`) and fix any regressions; confirm all unit, integration, and contract tests for US1, US2, US3 pass
 - [ ] T039 Validate `quickstart.md` smoke-test sequence end-to-end: `POST /auth/register` → `POST /auth/login` → `GET /auth/me` → `GET /admin/users` (403 then 200 with admin token); confirm `.env.example` and `alembic upgrade head` instructions work from a clean checkout
+- [ ] T040 [P] Create `scripts/seed_admin.py`: a standalone script that provisions an initial `admin`-role user via `UserRepository` (reads credentials from env vars `SEED_ADMIN_EMAIL` / `SEED_ADMIN_PASSWORD`; idempotent — skips if email already exists); append `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` placeholder entries to `.env.example`; add a "Seeding the admin account" section to `quickstart.md` documenting usage
+- [ ] T041 [P] Verify SC-001 and SC-005 performance thresholds (deferred to post-MVP — MUST run before production release): (0) create `locustfile.py` in the repo root with a Locust `HttpUser` class and a `TaskSet` that executes `POST /auth/register` → `POST /auth/login` per simulated user (generate a unique email per user via `uuid.uuid4()` to avoid duplicate-email conflicts; required by step 2); (1) **SC-005** — run `pytest --benchmark-only -k test_get_me_valid_token` (requires `pytest-benchmark` from T002 dev deps); assert p95 latency for JWT validation on `GET /auth/me` is < 200ms; record result in `quickstart.md`; (2) **SC-001** — run `locust -f locustfile.py --headless -u 50 -r 20 --run-time 60s` using the `TaskSet` from step 0; assert ≥ 95% of requests complete in < 5s; record result in `quickstart.md`; (3) add a `## Performance Verification` section to `quickstart.md` documenting both commands, thresholds, and a `TODO: run before production release` callout
 
 ---
 
@@ -153,7 +155,7 @@ token returns 403 `FORBIDDEN` → without token returns 401 `UNAUTHORIZED`.
 - **Setup (Phase 1)**: No dependencies — start immediately.
 - **Foundational (Phase 2)**: Requires Phase 1 complete. **BLOCKS all user stories.**
 - **US1 (Phase 3)**: Requires Phase 2 complete. No dependency on US2 or US3.
-- **US2 (Phase 4)**: Requires Phase 2 complete + T029 (`get_current_user`) is a pre-requisite for US3. US2 can start in parallel with US1.
+- **US2 (Phase 4)**: Requires Phase 2 complete + T029 (`get_current_user`) is a pre-requisite for US3. US2 can start in parallel with US1. **Note**: T028 extends `tests/unit/test_auth_service.py` created by T021 (Phase 3) — T028 MUST NOT be started before T021 is complete, even when US1 and US2 are worked in parallel by separate developers.
 - **US3 (Phase 5)**: Requires Phase 2 complete + T029 (`get_current_user`) from US2.
 - **Polish (Phase 6)**: Requires all desired user stories complete.
 
@@ -269,8 +271,8 @@ After Foundational phase completes:
 | Phase 3: US1 Registration (P1) | T017–T023 | 7 |
 | Phase 4: US2 Login + Protected (P1) | T024–T032 | 9 |
 | Phase 5: US3 Admin RBAC (P2) | T033–T036 | 4 |
-| Phase 6: Polish | T037–T039 | 3 |
-| **Total** | | **39** |
+| Phase 6: Polish | T037–T041 | 5 |
+| **Total** | | **41** |
 
 | User Story | Test tasks | Impl tasks | Parallel [P] tasks |
 |---|---|---|---|

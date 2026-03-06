@@ -49,14 +49,14 @@
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
 - [ ] T004 [P] [US1] Contract test — `GET /admin/reports/events/stats` returns 200 with correct `EventStatsPage` shape (items array, total, page, size, pages fields; `total_registered` and `remaining_quota` values match seeded data) in `tests/contract/test_reports.py`
-- [ ] T005 [P] [US1] Integration test — `ReportingRepository.get_event_stats_page()`: active events with mixed active/cancelled registrations return correct counts; event with zero registrations returns `total_registered=0, remaining_quota=quota`; event with more registrations than quota returns negative `remaining_quota`; past and inactive events are excluded in `tests/integration/test_reporting_repository.py`
+- [ ] T005 [P] [US1] Integration test — `ReportingRepository.get_event_stats_page()`: active events with mixed active/cancelled registrations return correct counts; event with zero registrations returns `total_registered=0, remaining_quota=quota`; event with more registrations than quota returns negative `remaining_quota`; past and inactive events are excluded; assert exactly one SQL statement is issued per call using a SQLAlchemy `before_cursor_execute` event hook (NFR-001); add a comment noting that read-time consistency for concurrent status changes is guaranteed by the database's default transaction isolation level (F6 edge case) in `tests/integration/test_reporting_repository.py`
 - [ ] T006 [P] [US1] Unit test — `ReportingService.get_event_stats()`: `EventStatRow` → `EventStatItem` mapping is correct; pagination math (`pages = ceil(total / size)`) is correct; empty result returns empty items list in `tests/unit/test_reporting_service.py`
 
 ### Tests for User Story 3 — Admin-Only Access (Priority: P1) ⚠️
 
-> US3 access control applies to all reporting endpoints; tests are written here before the router is implemented.
+> US3 access control applies to all reporting endpoints. Stats-endpoint assertions are written here (Phase 3) before the router is implemented; summary-endpoint assertions are added in Phase 4 (T007b) once T010 creates the router module.
 
-- [ ] T007 [US3] Contract test — unauthenticated request to `GET /admin/reports/events/stats` returns 401 `UNAUTHORIZED`; request with `role=user` token returns 403 `FORBIDDEN`; request with `role=admin` token returns 200; same assertions for `GET /admin/reports/events/summary` in `tests/contract/test_reports.py`
+- [ ] T007 [US3] Contract test — unauthenticated request to `GET /admin/reports/events/stats` returns 401 `UNAUTHORIZED`; request with `role=user` token returns 403 `FORBIDDEN`; request with `role=admin` token returns 200 in `tests/contract/test_reports.py`
 
 ### Implementation for User Story 1
 
@@ -67,7 +67,7 @@
 
 - [ ] T010 [US3] Implement `GET /admin/reports/events/stats` route handler with `Depends(require_role(UserRole.ADMIN))` and `Depends(pagination_params)` in `src/api/routers/reports.py`; create the router module with `APIRouter(prefix="/admin/reports", tags=["Admin Reporting"])`
 
-**Checkpoint**: `GET /admin/reports/events/stats?page=1&size=20` with an admin token returns paginated stats; same URL with a user token returns 403; without a token returns 401. `pytest tests/contract/test_reports.py tests/integration/test_reporting_repository.py tests/unit/test_reporting_service.py` all pass for US1/US3 tests.
+**Checkpoint**: `GET /admin/reports/events/stats?page=1&size=20` with an admin token returns paginated stats; same URL with a user token returns 403; without a token returns 401. `pytest tests/contract/test_reports.py tests/integration/test_reporting_repository.py tests/unit/test_reporting_service.py` all pass for US1 and stats-endpoint US3 tests. *(Summary-endpoint access control is verified in Phase 4 — T007b.)*
 
 ---
 
@@ -82,7 +82,13 @@
 > **NOTE: Write these tests FIRST, ensure they FAIL before implementation**
 
 - [ ] T011 [P] [US2] Contract test — `GET /admin/reports/events/summary` returns 200 with `{ "total_active_events": N }` shape; returns `total_active_events=0` (not an error) when no active events exist in `tests/contract/test_reports.py`
-- [ ] T012 [P] [US2] Integration test — `ReportingRepository.get_total_active_events()`: counts only `status='active' AND date > NOW()` events; past events with `status='active'` are excluded; events with `status='inactive'` are excluded; returns 0 when none qualify in `tests/integration/test_reporting_repository.py`
+- [ ] T012 [P] [US2] Integration test — `ReportingRepository.get_total_active_events()`: counts only `status='active' AND date > NOW()` events; past events with `status='active'` are excluded; events with `status='inactive'` are excluded; returns 0 when none qualify; assert exactly one SQL statement is issued per call (NFR-001); document that per-query isolation covers the concurrent status-change edge case (F6) in `tests/integration/test_reporting_repository.py`
+
+### Tests for User Story 3 — Summary Endpoint Access Control ⚠️
+
+> US3 access control also applies to the summary endpoint. Written here (Phase 4) once the router module exists from T010.
+
+- [ ] T007b [US3] Contract test — unauthenticated request to `GET /admin/reports/events/summary` returns 401 `UNAUTHORIZED`; request with `role=user` token returns 403 `FORBIDDEN`; request with `role=admin` token returns 200 in `tests/contract/test_reports.py`
 
 ### Implementation for User Story 2
 
@@ -90,7 +96,7 @@
 - [ ] T014 [US2] Implement `ReportingService.get_summary() → ReportSummaryResponse` — delegates to `ReportingRepository.get_total_active_events()` and returns `ReportSummaryResponse(total_active_events=count)` in `src/application/reporting_service.py`
 - [ ] T015 [US2] Implement `GET /admin/reports/events/summary` route handler with `Depends(require_role(UserRole.ADMIN))` in `src/api/routers/reports.py`
 
-**Checkpoint**: `GET /admin/reports/events/summary` with an admin token returns `{ "total_active_events": N }`; 403 with a user token; `pytest tests/contract/test_reports.py tests/integration/test_reporting_repository.py` pass for US2 tests. All four new files are now complete.
+**Checkpoint**: `GET /admin/reports/events/summary` with an admin token returns `{ "total_active_events": N }`; 403 with a user token; 401 without token. `pytest tests/contract/test_reports.py tests/integration/test_reporting_repository.py` pass for US2 and summary-endpoint US3 tests (T007b). All four new files are now complete.
 
 ---
 
@@ -100,9 +106,10 @@
 
 - [ ] T016 [P] Add module-level docstrings and inline comments to all four new files (`src/api/schemas/reports.py`, `src/api/routers/reports.py`, `src/application/reporting_service.py`, `src/infrastructure/repositories/reporting_repository.py`) explaining the `COUNT FILTER` pattern and the active-event predicate
 - [ ] T017 [P] Run full pytest suite (`pytest tests/`) and confirm SC-001 (all stat values match seeded data) and SC-003 (100% of non-admin access attempts rejected) pass; fix any failures
-- [ ] T018 Run the quickstart.md smoke tests — execute all five curl examples (4a–4e) against a running `uvicorn src.main:app --reload` instance and verify every response matches the expected shape defined in `specs/004-admin-reporting/quickstart.md`
+- [ ] T018 [P] Run the quickstart.md smoke tests — execute all five curl examples (4a–4e) against a running `uvicorn src.main:app --reload` instance and verify every response matches the expected shape defined in `specs/004-admin-reporting/quickstart.md`
+- [ ] T019 [P] Performance benchmark — seed the test database with 10,000 active future events and proportional event registrations; execute `GET /admin/reports/events/stats?page=1&size=20` and `GET /admin/reports/events/summary` repeatedly; assert p95 wall-clock latency ≤ 2 s per endpoint (SC-002); capture `EXPLAIN ANALYZE` output for the aggregate query and assert it contains a `HashAggregate` or `GroupAggregate` node to confirm aggregation occurs at the storage layer (NFR-002); use `pytest-benchmark` or a timing-loop with `statistics.quantiles` in `tests/integration/test_reporting_repository.py`
 
-**Checkpoint**: All 18 tasks complete. `pytest` green. Quickstart smoke tests pass. Feature branch ready for review.
+**Checkpoint**: All 20 tasks complete. `pytest` green (including benchmark thresholds). Quickstart smoke tests pass. Feature branch ready for review.
 
 ---
 
@@ -130,9 +137,11 @@
 - T007 must follow T004 (same file: `tests/contract/test_reports.py`)
 - T008 → T009 → T010 are sequential (each depends on the previous layer)
 - T011 and T012 are parallel (different files)
+- T007b must follow T011 (same file: `tests/contract/test_reports.py`, Phase 4)
 - T013 → T014 → T015 are sequential
 - T016 and T017 are parallel (different files / pure read operations)
 - T018 must follow T017 (requires all tests passing before smoke tests)
+- T019 must follow T017 (benchmark requires implementation complete; can run in parallel with T018)
 
 ---
 
@@ -154,8 +163,8 @@ T004  Contract tests in tests/contract/test_reports.py
 T005  Integration tests in tests/integration/test_reporting_repository.py
 T006  Unit tests in tests/unit/test_reporting_service.py
 
-# Then sequentially extend test_reports.py:
-T007  Access-control contract tests in tests/contract/test_reports.py
+# Then sequentially extend test_reports.py (stats endpoint only):
+T007  Stats-endpoint access-control contract tests in tests/contract/test_reports.py
 ```
 
 ### Phase 4 — US2 Tests
@@ -164,6 +173,9 @@ T007  Access-control contract tests in tests/contract/test_reports.py
 # Both test files can start simultaneously:
 T011  Contract tests (summary endpoint) in tests/contract/test_reports.py
 T012  Integration tests (get_total_active_events) in tests/integration/test_reporting_repository.py
+
+# Then sequentially extend test_reports.py:
+T007b  Summary-endpoint access-control contract tests in tests/contract/test_reports.py
 ```
 
 ---
@@ -174,7 +186,7 @@ T012  Integration tests (get_total_active_events) in tests/integration/test_repo
 
 1. Complete Phase 1: Setup (T001)
 2. Complete Phase 2: Foundational (T002–T003 in parallel)
-3. Write US1/US3 tests (T004–T006 in parallel, then T007)
+3. Write US1/US3 stats-endpoint tests (T004–T006 in parallel, then T007)
 4. Implement US1 stack: T008 → T009 → T010
 5. **STOP and VALIDATE**: Run `pytest tests/contract/test_reports.py tests/integration/test_reporting_repository.py tests/unit/test_reporting_service.py`
 6. Deploy/demo — admin can view per-event stats, access control enforced
@@ -191,11 +203,11 @@ T012  Integration tests (get_total_active_events) in tests/integration/test_repo
 T001 → T002 + T003 (parallel) →
 T004 + T005 + T006 (parallel) → T007 →
 T008 → T009 → T010 →
-[Validate US1/US3 independently] →
-T011 + T012 (parallel) →
+[Validate US1/US3 stats independently] →
+T011 + T012 (parallel) → T007b →
 T013 → T014 → T015 →
 [Validate US2 independently] →
-T016 + T017 (parallel) → T018
+T016 + T017 (parallel) → T018 + T019 (parallel)
 ```
 
 ---

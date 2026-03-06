@@ -29,7 +29,8 @@ Admin reporting feature providing two read-only endpoints — a paginated per-ev
 **Project Type**: web-service (HTTP API, REST)  
 **Performance Goals**: SC-002 — p95 ≤ 2 s with up to 10,000 active events and proportional registrations at normal load  
 **Constraints**: Admin-only access (`require_role(UserRole.ADMIN)`); no N+1 queries; `remaining_quota` displayed as-is including negative values; no Alembic migration  
-**Scale/Scope**: Depends on 001-authentication (JWT, role enforcement), 002-event-management (Event entity, `EventStatus`), 003-event-registration (EventRegistration entity, `RegistrationStatus`, partial index on `event_registrations`)
+**Scale/Scope**: Depends on 001-authentication (JWT, role enforcement), 002-event-management (Event entity, `EventStatus`), 003-event-registration (EventRegistration entity, `RegistrationStatus`, partial index on `event_registrations`)  
+**Tooling**: black (formatter) · ruff (linter) — consistent with 001/002/003; document in project README
 
 ---
 
@@ -45,7 +46,7 @@ Layer boundaries consistent with 001, 002, and 003:
 - **API layer** (`src/api/routers/reports.py`, `src/api/schemas/reports.py`): FastAPI route handlers, Pydantic response schemas (`EventStatItem`, `EventStatsPage`, `ReportSummaryResponse`). No business logic.
 - **Application/Service layer** (`src/application/reporting_service.py`): `get_event_stats(page, size)` and `get_summary()` use-cases. Delegates DB access to repository. No framework imports beyond dependency injection.
 - **Domain layer**: No new domain entities. Uses existing `EventStatus` and `RegistrationStatus` enums from `src/domain/models.py`.
-- **Infrastructure layer** (`src/infrastructure/repositories/reporting_repository.py`): `ReportingRepository` with `get_event_stats_page(offset, limit) → list[EventStatRow]` and `get_total_active_events() → int`. Encapsulates the aggregate SQL query. No business logic.
+- **Infrastructure layer** (`src/infrastructure/repositories/reporting_repository.py`): `ReportingRepository` with `get_event_stats_page(offset, limit) → tuple[list[EventStatRow], int]` and `get_total_active_events() → int`. Encapsulates the aggregate SQL query. No business logic.
 
 Dependency direction: API → Application → Domain ← Infrastructure (inward-only). No circular dependencies.
 

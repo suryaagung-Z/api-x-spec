@@ -19,7 +19,6 @@ Represents an individual account that can authenticate and be authorized.
 | `email` | string | NOT NULL, unique, max 255 | Case-insensitive unique index; used as login identifier |
 | `hashed_password` | string | NOT NULL | bcrypt hash (rounds=12); NEVER plain text |
 | `role` | enum(`user`, `admin`) | NOT NULL, default `user` | Determines access level |
-| `is_active` | boolean | NOT NULL, default `true` | Reserved for future deactivation logic |
 | `created_at` | datetime (UTC) | NOT NULL, server default | Audit timestamp |
 
 **Validation rules**:
@@ -28,11 +27,7 @@ Represents an individual account that can authenticate and be authorized.
 - `name` — non-empty, max 255 characters.
 - `role` — must be one of `user` | `admin`; default on registration is `user`.
 
-**State transitions**:
-```
-[new] → is_active=true (on registration)
-      → is_active=false (future: deactivation — out of scope for this feature)
-```
+**State transitions**: Account activation/deactivation is out of scope for this feature (see spec.md §Assumptions & Dependencies). No `is_active` field is persisted.
 
 **SQLAlchemy ORM model location**: `src/infrastructure/db/models.py`  
 **Domain entity location**: `src/domain/models.py` (plain Python dataclass or Pydantic model)
@@ -91,7 +86,6 @@ CREATE TABLE users (
     hashed_password VARCHAR(255) NOT NULL,
     role        VARCHAR(10)  NOT NULL DEFAULT 'user'
                     CHECK (role IN ('user', 'admin')),
-    is_active   BOOLEAN      NOT NULL DEFAULT TRUE,
     created_at  TIMESTAMP    NOT NULL DEFAULT NOW()
 );
 
@@ -132,7 +126,6 @@ class UserRead(BaseModel):
     name: str
     email: str
     role: str
-    is_active: bool
     created_at: datetime
 ```
 
