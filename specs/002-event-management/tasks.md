@@ -6,7 +6,7 @@
 **Total tasks**: 31 (T001–T031)
 **User story breakdown**: US1 → 8 tasks (T007–T014) · US2 → 5 tasks (T015–T019) · US3 → 6 tasks (T020–T025) · Setup/Foundation → 6 tasks (T001–T006) · Polish → 6 tasks (T026–T031)
 
-**Format**: `- [ ] [ID] [P?] [Story?] Description — file path`
+**Format**: `- [X] [ID] [P?] [Story?] Description — file path`
 - `[P]` = can run in parallel (different files, no blocking dependency)
 - `[US1]`/`[US2]`/`[US3]` = user story label (story phases only)
 
@@ -16,7 +16,7 @@
 
 **Purpose**: Create directory/file stubs for the new modules so parallel work can begin immediately.
 
-- [ ] T001 Create new feature directories per plan.md structure: `src/api/schemas/`, `src/api/dependencies/`, `src/application/`, `src/infrastructure/repositories/`, `tests/contract/`, `tests/integration/`, `tests/unit/`
+- [X] T001 Create new feature directories per plan.md structure: `src/api/schemas/`, `src/api/dependencies/`, `src/application/`, `src/infrastructure/repositories/`, `tests/contract/`, `tests/integration/`, `tests/unit/`
 
 ---
 
@@ -26,11 +26,11 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T002 [P] Add `EventStatus` enum (`ACTIVE`, `DELETED`) to `src/domain/models.py`
-- [ ] T003 [P] Add domain exceptions `EventNotFoundError`, `QuotaBelowParticipantsError`, `EventDateInPastError` to `src/domain/exceptions.py`
-- [ ] T004 Add `Event` ORM model with `DateTime(timezone=True)` columns, `SAEnum(EventStatus)`, and `__table_args__` composite index `ix_events_date_title` + `ix_events_registration_deadline` to `src/infrastructure/db/models.py`
-- [ ] T005 Create Alembic migration for `events` table and `eventstatus` enum; create both indexes using `op.execute("CREATE INDEX CONCURRENTLY ...")` inside `op.get_context().autocommit_block()` (not `create_index(postgresql_concurrently=True)` which fails inside a transaction) in `src/infrastructure/alembic/versions/xxxx_add_events_table.py`
-- [ ] T006 Register events router prefix `/admin/events` and `/events` in the FastAPI application entry point (e.g., `src/main.py` or `src/app.py`)
+- [X] T002 [P] Add `EventStatus` enum (`ACTIVE`, `DELETED`) to `src/domain/models.py`
+- [X] T003 [P] Add domain exceptions `EventNotFoundError`, `QuotaBelowParticipantsError`, `EventDateInPastError` to `src/domain/exceptions.py`
+- [X] T004 Add `Event` ORM model with `DateTime(timezone=True)` columns, `SAEnum(EventStatus)`, and `__table_args__` composite index `ix_events_date_title` + `ix_events_registration_deadline` to `src/infrastructure/db/models.py`
+- [X] T005 Create Alembic migration for `events` table and `eventstatus` enum; create both indexes using `op.execute("CREATE INDEX CONCURRENTLY ...")` inside `op.get_context().autocommit_block()` (not `create_index(postgresql_concurrently=True)` which fails inside a transaction) in `src/infrastructure/alembic/versions/xxxx_add_events_table.py`
+- [X] T006 Register events router prefix `/admin/events` and `/events` in the FastAPI application entry point (e.g., `src/main.py` or `src/app.py`)
 
 **Checkpoint**: `Event` ORM model importable, migration runs cleanly, router prefix registered — user story phases may now proceed.
 
@@ -44,17 +44,17 @@
 
 ### Tests for User Story 1 ⚠️
 
-- [ ] T007 [P] [US1] Write unit tests for: (1) `EventCreate.validate_deadline_before_date` model_validator (deadline > date → `ValidationError`, deadline == date → valid) in `tests/unit/test_event_schemas.py`; (2) `create_event` service raises `EventDateInPastError` when `date` is in the past — FR-013 service-level guard (mirrors T015 pattern for `QuotaBelowParticipantsError`) in `tests/unit/test_event_service.py`
-- [ ] T008 [P] [US1] Write contract tests for `POST /admin/events`: 201 with valid body, 422 for deadline > date, 422 for `date` in past (FR-013), 422 for missing fields, 422 for naive datetime, 401 without token, 403 with non-admin token in `tests/contract/test_events_admin.py`
+- [X] T007 [P] [US1] Write unit tests for: (1) `EventCreate.validate_deadline_before_date` model_validator (deadline > date → `ValidationError`, deadline == date → valid) in `tests/unit/test_event_schemas.py`; (2) `create_event` service raises `EventDateInPastError` when `date` is in the past — FR-013 service-level guard (mirrors T015 pattern for `QuotaBelowParticipantsError`) in `tests/unit/test_event_service.py`
+- [X] T008 [P] [US1] Write contract tests for `POST /admin/events`: 201 with valid body, 422 for deadline > date, 422 for `date` in past (FR-013), 422 for missing fields, 422 for naive datetime, 401 without token, 403 with non-admin token in `tests/contract/test_events_admin.py`
 
 ### Implementation for User Story 1
 
-- [ ] T009 [P] [US1] Implement `Page[T]` generic model with `@computed_field total_pages` in `src/api/schemas/pagination.py` and `pagination_params` FastAPI dependency (`page`, `page_size` with `ge=1`, `le=100`) in `src/api/dependencies/pagination.py`
-- [ ] T010 [US1] Implement `EventCreate` (with `AwareDatetime`, `model_validator` for deadline ≤ date), `EventUpdate` (all fields `Optional`), and `EventResponse` (with `@computed_field registration_closed`) Pydantic schemas in `src/api/schemas/events.py`
-- [ ] T011 [US1] Implement `EventRepository.create` method (persists `Event` ORM, returns ORM object after `flush`) in `src/infrastructure/repositories/event_repository.py`
-- [ ] T012 [US1] Implement `_public_events_query()` helper and `create_event` use-case (normalize datetimes to UTC, raise `EventDateInPastError` if `date` is in the past per FR-013, call `EventRepository.create`) in `src/application/event_service.py`
-- [ ] T013 [US1] Implement `POST /admin/events` endpoint (depends on `require_role(UserRole.ADMIN)` from 001-auth, calls `event_service.create_event`, returns 201) in `src/api/routers/events.py`
-- [ ] T014 [US1] Register FastAPI exception handlers for `EventNotFoundError` → 404, `QuotaBelowParticipantsError` → 409, `EventDateInPastError` → 422 using the error envelope `{"error": {"code", "message", "httpStatus"}}` format in `src/main.py` (or wherever auth exception handlers live)
+- [X] T009 [P] [US1] Implement `Page[T]` generic model with `@computed_field total_pages` in `src/api/schemas/pagination.py` and `pagination_params` FastAPI dependency (`page`, `page_size` with `ge=1`, `le=100`) in `src/api/dependencies/pagination.py`
+- [X] T010 [US1] Implement `EventCreate` (with `AwareDatetime`, `model_validator` for deadline ≤ date), `EventUpdate` (all fields `Optional`), and `EventResponse` (with `@computed_field registration_closed`) Pydantic schemas in `src/api/schemas/events.py`
+- [X] T011 [US1] Implement `EventRepository.create` method (persists `Event` ORM, returns ORM object after `flush`) in `src/infrastructure/repositories/event_repository.py`
+- [X] T012 [US1] Implement `_public_events_query()` helper and `create_event` use-case (normalize datetimes to UTC, raise `EventDateInPastError` if `date` is in the past per FR-013, call `EventRepository.create`) in `src/application/event_service.py`
+- [X] T013 [US1] Implement `POST /admin/events` endpoint (depends on `require_role(UserRole.ADMIN)` from 001-auth, calls `event_service.create_event`, returns 201) in `src/api/routers/events.py`
+- [X] T014 [US1] Register FastAPI exception handlers for `EventNotFoundError` → 404, `QuotaBelowParticipantsError` → 409, `EventDateInPastError` → 422 using the error envelope `{"error": {"code", "message", "httpStatus"}}` format in `src/main.py` (or wherever auth exception handlers live)
 
 **Checkpoint**: `POST /admin/events` returns 201 with correct `EventResponse`. Validation errors return 422. Auth errors return 401/403. All T007–T008 tests pass.
 
@@ -68,14 +68,14 @@
 
 ### Tests for User Story 2 ⚠️
 
-- [ ] T015 [P] [US2] Write unit tests for `update_event` quota-protection logic: quota update below participant count → raises `QuotaBelowParticipantsError`; quota update ≥ participant count → succeeds in `tests/unit/test_event_service.py`
-- [ ] T016 [P] [US2] Write contract tests for `GET /admin/events/{id}` (200/404/401/403), `PUT /admin/events/{id}` (200/404/409/422/401/403), `DELETE /admin/events/{id}` (204/404/401/403) in `tests/contract/test_events_admin.py`
+- [X] T015 [P] [US2] Write unit tests for `update_event` quota-protection logic: quota update below participant count → raises `QuotaBelowParticipantsError`; quota update ≥ participant count → succeeds in `tests/unit/test_event_service.py`
+- [X] T016 [P] [US2] Write contract tests for `GET /admin/events/{id}` (200/404/401/403), `PUT /admin/events/{id}` (200/404/409/422/401/403), `DELETE /admin/events/{id}` (204/404/401/403) in `tests/contract/test_events_admin.py`
 
 ### Implementation for User Story 2
 
-- [ ] T017 [P] [US2] Implement `EventRepository.get_by_id_admin` (no status filter), `update` (apply partial dict, `flush`), and `soft_delete` (set `status = EventStatus.DELETED`, `flush`) methods in `src/infrastructure/repositories/event_repository.py`
-- [ ] T018 [US2] Implement `get_event_admin`, `update_event` (load event, merge update fields, cross-validate deadline ≤ date using stored values for missing partial fields, check quota ≥ participant count), and `delete_event` (soft delete) use-cases in `src/application/event_service.py`
-- [ ] T019 [US2] Implement `GET /admin/events/{id}`, `PUT /admin/events/{id}`, and `DELETE /admin/events/{id}` endpoints (all require `require_role(UserRole.ADMIN)`) in `src/api/routers/events.py`
+- [X] T017 [P] [US2] Implement `EventRepository.get_by_id_admin` (no status filter), `update` (apply partial dict, `flush`), and `soft_delete` (set `status = EventStatus.DELETED`, `flush`) methods in `src/infrastructure/repositories/event_repository.py`
+- [X] T018 [US2] Implement `get_event_admin`, `update_event` (load event, merge update fields, cross-validate deadline ≤ date using stored values for missing partial fields, check quota ≥ participant count), and `delete_event` (soft delete) use-cases in `src/application/event_service.py`
+- [X] T019 [US2] Implement `GET /admin/events/{id}`, `PUT /admin/events/{id}`, and `DELETE /admin/events/{id}` endpoints (all require `require_role(UserRole.ADMIN)`) in `src/api/routers/events.py`
 
 **Checkpoint**: All admin CRUD endpoints functional (201/200/204). Quota protection returns 409. Soft delete hides event from public. All T015–T016 tests pass.
 
@@ -89,15 +89,15 @@
 
 ### Tests for User Story 3 ⚠️
 
-- [ ] T020 [P] [US3] Write unit tests for `_public_events_query()` (excludes `DELETED` and past events) and `EventResponse.registration_closed` computed field (`deadline` in past → `True`, `deadline` in future → `False`) in `tests/unit/test_event_service.py` and `tests/unit/test_event_schemas.py`
-- [ ] T021 [P] [US3] Write contract tests for `GET /events` (200 with correct `Page[EventResponse]` shape, future-only filter, `registration_closed` present, 422 for invalid `page_size`), `GET /events?page=999` (200 with empty `items`), and `GET /events/{id}` (200 / 404 for deleted or non-existent) in `tests/contract/test_events_public.py`
-- [ ] T022 [P] [US3] Write integration tests for repository public listing: ordering by `date ASC, title ASC`, past events excluded, DELETED events excluded, pagination offset math (page 2 returns correct slice), `count_public` matches `len(all_public_events)` in `tests/integration/test_event_repository.py`
+- [X] T020 [P] [US3] Write unit tests for `_public_events_query()` (excludes `DELETED` and past events) and `EventResponse.registration_closed` computed field (`deadline` in past → `True`, `deadline` in future → `False`) in `tests/unit/test_event_service.py` and `tests/unit/test_event_schemas.py`
+- [X] T021 [P] [US3] Write contract tests for `GET /events` (200 with correct `Page[EventResponse]` shape, future-only filter, `registration_closed` present, 422 for invalid `page_size`), `GET /events?page=999` (200 with empty `items`), and `GET /events/{id}` (200 / 404 for deleted or non-existent) in `tests/contract/test_events_public.py`
+- [X] T022 [P] [US3] Write integration tests for repository public listing: ordering by `date ASC, title ASC`, past events excluded, DELETED events excluded, pagination offset math (page 2 returns correct slice), `count_public` matches `len(all_public_events)` in `tests/integration/test_event_repository.py`
 
 ### Implementation for User Story 3
 
-- [ ] T023 [P] [US3] Implement `EventRepository.list_public` (two-query pattern: `count_stmt = select(func.count()).select_from(base.order_by(None).subquery())`; `data_stmt` with `.offset().limit()`) and `EventRepository.get_public_by_id` in `src/infrastructure/repositories/event_repository.py`
-- [ ] T024 [US3] Implement `list_public_events` use-case (calls repository, assembles `Page[EventResponse]`) and `get_public_event` use-case (raises `EventNotFoundError` if None) in `src/application/event_service.py`
-- [ ] T025 [US3] Implement `GET /events` (uses `Depends(pagination_params)`, returns `Page[EventResponse]`, no auth required) and `GET /events/{id}` (returns `EventResponse`, no auth required, 404 on missing/DELETED) in `src/api/routers/events.py`
+- [X] T023 [P] [US3] Implement `EventRepository.list_public` (two-query pattern: `count_stmt = select(func.count()).select_from(base.order_by(None).subquery())`; `data_stmt` with `.offset().limit()`) and `EventRepository.get_public_by_id` in `src/infrastructure/repositories/event_repository.py`
+- [X] T024 [US3] Implement `list_public_events` use-case (calls repository, assembles `Page[EventResponse]`) and `get_public_event` use-case (raises `EventNotFoundError` if None) in `src/application/event_service.py`
+- [X] T025 [US3] Implement `GET /events` (uses `Depends(pagination_params)`, returns `Page[EventResponse]`, no auth required) and `GET /events/{id}` (returns `EventResponse`, no auth required, 404 on missing/DELETED) in `src/api/routers/events.py`
 
 **Checkpoint**: Full public browse flow works. Pagination consistent across pages. Past and DELETED events invisible to public. `registration_closed` flag correct. All T020–T022 tests pass.
 
@@ -105,12 +105,12 @@
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T026 [P] Run `black --check` and `ruff check` on all new modules; run `mypy --strict` on (`src/api/schemas/events.py`, `src/api/schemas/pagination.py`, `src/api/dependencies/pagination.py`, `src/application/event_service.py`, `src/infrastructure/repositories/event_repository.py`); fix all formatting, linting, and type errors
-- [ ] T027 [P] Verify FR-009 edge case: seed an event with `registration_deadline` in the past but `date` in the future → assert `GET /events` includes it and `registration_closed == true` — add or extend `tests/unit/test_event_schemas.py`
-- [ ] T028 [P] Verify extreme pagination edge case: `GET /events?page=9999` → 200 with `items: []`, `total_pages` correct, no 500 — add assertion to `tests/contract/test_events_public.py`
-- [ ] T029 [P] Verify `EventUpdate` partial-update cross-validation: only `date` supplied → service loads stored `registration_deadline` and checks deadline ≤ new date; only `registration_deadline` supplied → service loads stored `date` and checks — add unit test to `tests/unit/test_event_service.py`
-- [ ] T030 Run full test suite (`pytest tests/`) and confirm all 002-event-management tests pass with no regressions in 001-authentication tests
-- [ ] T031 [P] Add a performance benchmark for `GET /events` with a representative seeded dataset (hundreds of active events) asserting p95 < 1000 ms (NFR-001 / SC-004) in `tests/integration/test_event_performance.py` using `pytest-benchmark` or equivalent
+- [X] T026 [P] Run `black --check` and `ruff check` on all new modules; run `mypy --strict` on (`src/api/schemas/events.py`, `src/api/schemas/pagination.py`, `src/api/dependencies/pagination.py`, `src/application/event_service.py`, `src/infrastructure/repositories/event_repository.py`); fix all formatting, linting, and type errors
+- [X] T027 [P] Verify FR-009 edge case: seed an event with `registration_deadline` in the past but `date` in the future → assert `GET /events` includes it and `registration_closed == true` — add or extend `tests/unit/test_event_schemas.py`
+- [X] T028 [P] Verify extreme pagination edge case: `GET /events?page=9999` → 200 with `items: []`, `total_pages` correct, no 500 — add assertion to `tests/contract/test_events_public.py`
+- [X] T029 [P] Verify `EventUpdate` partial-update cross-validation: only `date` supplied → service loads stored `registration_deadline` and checks deadline ≤ new date; only `registration_deadline` supplied → service loads stored `date` and checks — add unit test to `tests/unit/test_event_service.py`
+- [X] T030 Run full test suite (`pytest tests/`) and confirm all 002-event-management tests pass with no regressions in 001-authentication tests
+- [X] T031 [P] Add a performance benchmark for `GET /events` with a representative seeded dataset (hundreds of active events) asserting p95 < 1000 ms (NFR-001 / SC-004) in `tests/integration/test_event_performance.py` using `pytest-benchmark` or equivalent
 
 ---
 

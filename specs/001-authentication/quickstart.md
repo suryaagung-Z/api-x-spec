@@ -132,7 +132,24 @@ Expected: `403 Forbidden` with `{"error": {"code": "FORBIDDEN", ...}}`.
 
 ---
 
-## 7. Run Tests
+## 7. Seeding the Admin Account
+
+Use `scripts/seed_admin.py` to provision the first admin user. It is idempotent —
+running it multiple times is safe.
+
+```bash
+# Copy .env.example → .env and set SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD first
+SEED_ADMIN_EMAIL=admin@yourdomain.com \
+SEED_ADMIN_PASSWORD=StrongP@ss123 \
+python scripts/seed_admin.py
+```
+
+The script reads `SEED_ADMIN_EMAIL` and `SEED_ADMIN_PASSWORD` from environment
+variables (or a `.env` file). It skips creation if the email already exists.
+
+---
+
+## 8. Run Tests
 
 ```bash
 # All tests
@@ -205,7 +222,31 @@ pyproject.toml       # Dependencies, tool config (black, ruff, mypy)
 
 ---
 
-## 10. Key Architectural Notes
+## Performance Verification
+
+> **TODO: run before production release**
+
+### SC-005 — JWT Validation p95 Latency (<200 ms)
+
+```bash
+pytest --benchmark-only -k test_get_me_valid_token
+```
+
+Assert: p95 latency for `GET /auth/me` (JWT validation path) is **< 200 ms**.
+
+### SC-001 — Register+Login Flow at Load (≥95% requests in <5 s)
+
+Ensure the dev server is running first (`uvicorn src.main:app --reload`), then:
+
+```bash
+locust -f locustfile.py --headless -u 50 -r 20 --run-time 60s --host http://localhost:8000
+```
+
+Assert: **≥ 95%** of `POST /auth/register` + `POST /auth/login` requests complete in **< 5 s**.
+
+---
+
+## 11. Key Architectural Notes
 
 - **Error envelope**: All errors return `{"error": {"code", "message", "httpStatus"}}` — see [contracts/error-envelope.md](contracts/error-envelope.md).
 - **JWT claims**: `sub` (user id), `role`, `iat`, `exp`; signed with HS256.
