@@ -1,0 +1,1581 @@
+openapi: "3.1.0"
+
+info:
+  title: "API-X"
+  version: "0.1.0"
+  description: |
+    **API-X** adalah backend REST API untuk manajemen event dan pendaftaran peserta,
+    dilengkapi dengan autentikasi berbasis JWT dan laporan statistik untuk admin.
+
+    ## Cara Menggunakan API Ini
+
+    Sebagian besar endpoint memerlukan autentikasi. Ikuti langkah berikut:
+
+    1. **Daftar akun** — Panggil `POST /auth/register` dengan nama, email, dan kata sandi.
+    2. **Login** — Panggil `POST /auth/login` dengan email dan kata sandi untuk mendapatkan JWT access token.
+    3. **Salin token** — Dari respons login, salin nilai `access_token`.
+    4. **Masukkan token** — Klik tombol **Authorize** di atas, lalu masukkan token dalam format `Bearer <token>`.
+    5. **Akses endpoint** — Semua endpoint terproteksi kini dapat digunakan langsung dari halaman ini.
+
+    ## Peran Pengguna
+
+    | Peran | Keterangan |
+    |-------|-----------|
+    | **Publik** | Dapat diakses tanpa autentikasi |
+    | **Memerlukan token** | Memerlukan JWT token pengguna terdaftar |
+    | **Khusus admin** | Memerlukan JWT token dengan role `admin` |
+
+    ## Format Error
+
+    Semua error menggunakan struktur JSON yang konsisten:
+
+    ```json
+    {
+      "error": {
+        "code": "KODE_ERROR",
+        "message": "Pesan yang dapat dibaca manusia.",
+        "httpStatus": 4xx
+      }
+    }
+    ```
+
+servers:
+  - url: "http://localhost:8000"
+    description: "Lokal (development)"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT access token yang diperoleh dari `POST /auth/login`.
+
+        **Cara mendapatkan token**:
+        1. Panggil `POST /auth/login` dengan email dan kata sandi yang valid.
+        2. Salin nilai `access_token` dari respons.
+        3. Klik tombol **Authorize** di atas dan masukkan nilai token (tanpa awalan "Bearer").
+
+        **Format header**: `Authorization: Bearer <token>`
+
+        Token berlaku selama **60 menit** sejak diterbitkan (HS256 JWT).
+
+  schemas:
+
+    # ------------------------------------------------------------------ Auth
+    RegisterRequest:
+      type: object
+      required: [name, email, password]
+      description: "Data yang diperlukan untuk mendaftarkan akun pengguna baru."
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: "Nama lengkap pengguna."
+          examples:
+            - "Budi Santoso"
+        email:
+          type: string
+          format: email
+          description: "Alamat email unik yang digunakan untuk login. Tidak boleh sama dengan email yang sudah terdaftar."
+          examples:
+            - "budi@contoh.com"
+        password:
+          type: string
+          minLength: 8
+          maxLength: 72
+          description: "Kata sandi (minimal 8 karakter, maksimal 72 karakter). Disimpan sebagai hash bcrypt — tidak pernah disimpan dalam bentuk plain text."
+          examples:
+            - "R4h4sia!Kuat"
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      description: "Kredensial untuk login dan mendapatkan JWT access token."
+      properties:
+        email:
+          type: string
+          format: email
+          description: "Alamat email akun yang sudah terdaftar."
+          examples:
+            - "budi@contoh.com"
+        password:
+          type: string
+          minLength: 1
+          description: "Kata sandi akun."
+          examples:
+            - "R4h4sia!Kuat"
+
+    TokenResponse:
+      type: object
+      description: "JWT access token yang dikembalikan setelah login berhasil."
+      properties:
+        access_token:
+          type: string
+          description: "JWT access token. Sertakan di header `Authorization: Bearer <token>` untuk mengakses endpoint terproteksi. Berlaku selama 60 menit sejak diterbitkan."
+          examples:
+            - "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmNDdhYzEwYi01OGNjLTQzNzItYTU2Ny0wZTAyYjJjM2Q0NzkiLCJyb2xlIjoidXNlciIsImlhdCI6MTc0MTUwMDAwMCwiZXhwIjoxNzQxNTAzNjAwfQ.signature"
+        token_type:
+          type: string
+          description: "Tipe token. Selalu `\"bearer\"`."
+          examples:
+            - "bearer"
+
+    UserRead:
+      type: object
+      description: "Data profil pengguna yang dikembalikan oleh sistem."
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: "ID unik pengguna (UUID)."
+          examples:
+            - "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        name:
+          type: string
+          description: "Nama lengkap pengguna."
+          examples:
+            - "Budi Santoso"
+        email:
+          type: string
+          format: email
+          description: "Alamat email pengguna."
+          examples:
+            - "budi@contoh.com"
+        role:
+          type: string
+          enum: [user, admin]
+          description: "Peran pengguna. `\"user\"` untuk pengguna biasa; `\"admin\"` untuk administrator."
+          examples:
+            - "user"
+        created_at:
+          type: string
+          format: date-time
+          description: "Waktu pembuatan akun (UTC, format ISO 8601)."
+          examples:
+            - "2026-03-01T08:00:00Z"
+
+    # ------------------------------------------------------------------ Events
+    EventCreate:
+      type: object
+      required: [title, description, date, registration_deadline, quota]
+      description: "Data yang diperlukan untuk membuat event baru. Hanya dapat dilakukan oleh admin."
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: "Judul event yang akan ditampilkan kepada peserta."
+          examples:
+            - "Workshop Python Lanjutan"
+        description:
+          type: string
+          minLength: 1
+          description: "Deskripsi lengkap event, termasuk agenda dan informasi pembicara."
+          examples:
+            - "Workshop intensif satu hari tentang FastAPI dan Pydantic v2. Cocok untuk developer yang sudah familiar dengan Python dasar."
+        date:
+          type: string
+          format: date-time
+          description: "Tanggal dan waktu pelaksanaan event (ISO 8601 dengan informasi timezone). Harus di masa depan saat event dibuat."
+          examples:
+            - "2026-06-15T09:00:00+07:00"
+        registration_deadline:
+          type: string
+          format: date-time
+          description: "Batas waktu pendaftaran (ISO 8601 dengan timezone). Harus sebelum atau sama dengan `date`."
+          examples:
+            - "2026-06-10T23:59:59+07:00"
+        quota:
+          type: integer
+          minimum: 1
+          description: "Kapasitas maksimum peserta. Harus minimal 1."
+          examples:
+            - 50
+
+    EventUpdate:
+      type: object
+      description: "Data untuk memperbarui event yang sudah ada. Semua field bersifat opsional — hanya field yang disertakan yang akan diperbarui (partial update). Khusus admin."
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: "Judul event baru (opsional)."
+          examples:
+            - "Workshop Python Lanjutan — Edisi Revisi"
+        description:
+          type: string
+          minLength: 1
+          description: "Deskripsi event baru (opsional)."
+          examples:
+            - "Deskripsi yang diperbarui."
+        date:
+          type: string
+          format: date-time
+          description: "Tanggal dan waktu pelaksanaan baru (opsional)."
+          examples:
+            - "2026-06-20T09:00:00+07:00"
+        registration_deadline:
+          type: string
+          format: date-time
+          description: "Batas waktu pendaftaran baru (opsional). Harus sebelum atau sama dengan `date`."
+          examples:
+            - "2026-06-15T23:59:59+07:00"
+        quota:
+          type: integer
+          minimum: 1
+          description: "Kuota baru (opsional). Tidak boleh lebih kecil dari jumlah peserta aktif yang sudah terdaftar."
+          examples:
+            - 75
+
+    EventResponse:
+      type: object
+      description: "Detail lengkap sebuah event."
+      properties:
+        id:
+          type: integer
+          description: "ID unik event."
+          examples:
+            - 42
+        title:
+          type: string
+          description: "Judul event."
+          examples:
+            - "Workshop Python Lanjutan"
+        description:
+          type: string
+          description: "Deskripsi lengkap event."
+          examples:
+            - "Workshop intensif satu hari tentang FastAPI dan Pydantic v2."
+        date:
+          type: string
+          format: date-time
+          description: "Tanggal dan waktu pelaksanaan."
+          examples:
+            - "2026-06-15T09:00:00"
+        registration_deadline:
+          type: string
+          format: date-time
+          description: "Batas waktu pendaftaran."
+          examples:
+            - "2026-06-10T23:59:59"
+        quota:
+          type: integer
+          description: "Kapasitas maksimum peserta."
+          examples:
+            - 50
+        status:
+          type: string
+          enum: [active, deleted]
+          description: "Status event. `\"active\"` berarti event dapat dilihat dan didaftarkan; `\"deleted\"` berarti event telah dihapus oleh admin."
+          examples:
+            - "active"
+        created_at:
+          type: string
+          format: date-time
+          description: "Waktu event dibuat di sistem."
+          examples:
+            - "2026-03-01T08:00:00"
+        registration_closed:
+          type: boolean
+          description: "Bernilai `true` jika batas waktu pendaftaran sudah lewat (dihitung saat respons dikirim). Ini adalah field kalkulasi, bukan disimpan di database."
+          examples:
+            - false
+
+    # ------------------------------------------------------------------ Registrations
+    RegistrationResponse:
+      type: object
+      description: "Konfirmasi pendaftaran peserta ke sebuah event."
+      properties:
+        id:
+          type: integer
+          description: "ID unik pendaftaran."
+          examples:
+            - 101
+        event_id:
+          type: integer
+          description: "ID event yang didaftarkan."
+          examples:
+            - 42
+        status:
+          type: string
+          enum: [active, cancelled]
+          description: "Status pendaftaran. `\"active\"` berarti terdaftar; `\"cancelled\"` berarti telah dibatalkan."
+          examples:
+            - "active"
+        registered_at:
+          type: string
+          format: date-time
+          description: "Waktu pendaftaran dilakukan."
+          examples:
+            - "2026-03-09T10:30:00"
+
+    EventSummary:
+      type: object
+      description: "Ringkasan informasi event, disertakan dalam respons pendaftaran."
+      properties:
+        id:
+          type: integer
+          description: "ID unik event."
+          examples:
+            - 42
+        title:
+          type: string
+          description: "Judul event."
+          examples:
+            - "Workshop Python Lanjutan"
+        date:
+          type: string
+          format: date-time
+          description: "Tanggal dan waktu pelaksanaan."
+          examples:
+            - "2026-06-15T09:00:00"
+        registration_deadline:
+          type: string
+          format: date-time
+          description: "Batas waktu pendaftaran."
+          examples:
+            - "2026-06-10T23:59:59"
+        status:
+          type: string
+          enum: [active, deleted]
+          description: "Status event."
+          examples:
+            - "active"
+
+    RegistrationWithEventResponse:
+      type: object
+      description: "Pendaftaran beserta detail ringkasan event yang didaftarkan. Digunakan pada endpoint daftar pendaftaran milik pengguna."
+      properties:
+        id:
+          type: integer
+          description: "ID unik pendaftaran."
+          examples:
+            - 101
+        event_id:
+          type: integer
+          description: "ID event yang didaftarkan."
+          examples:
+            - 42
+        status:
+          type: string
+          enum: [active, cancelled]
+          description: "Status pendaftaran."
+          examples:
+            - "active"
+        registered_at:
+          type: string
+          format: date-time
+          description: "Waktu pendaftaran dilakukan."
+          examples:
+            - "2026-03-09T10:30:00"
+        cancelled_at:
+          type: ["string", "null"]
+          format: date-time
+          description: "Waktu pembatalan pendaftaran. Bernilai `null` jika pendaftaran masih aktif."
+          examples:
+            - null
+        event:
+          $ref: "#/components/schemas/EventSummary"
+
+    # ------------------------------------------------------------------ Reports
+    EventStatItem:
+      type: object
+      description: "Statistik peserta untuk satu event aktif."
+      properties:
+        id:
+          type: integer
+          description: "ID unik event."
+          examples:
+            - 42
+        title:
+          type: string
+          description: "Judul event."
+          examples:
+            - "Workshop Python Lanjutan"
+        date:
+          type: string
+          format: date-time
+          description: "Tanggal dan waktu pelaksanaan."
+          examples:
+            - "2026-06-15T09:00:00"
+        quota:
+          type: integer
+          description: "Kapasitas maksimum peserta event."
+          examples:
+            - 50
+        total_registered:
+          type: integer
+          description: "Jumlah peserta yang saat ini terdaftar dengan status `active` (tidak termasuk yang sudah dibatalkan)."
+          examples:
+            - 37
+        remaining_quota:
+          type: integer
+          description: "Sisa kuota yang tersedia = `quota − total_registered`. Dapat bernilai negatif jika ada anomali data — tidak di-clamp ke nol agar admin dapat mendeteksinya."
+          examples:
+            - 13
+
+    EventStatsPage:
+      type: object
+      description: "Halaman berisi statistik peserta per event aktif, beserta informasi pagination."
+      properties:
+        items:
+          type: array
+          description: "Daftar statistik event pada halaman ini."
+          items:
+            $ref: "#/components/schemas/EventStatItem"
+        total:
+          type: integer
+          description: "Total event aktif di semua halaman."
+          examples:
+            - 120
+        page:
+          type: integer
+          description: "Nomor halaman saat ini (dimulai dari 1)."
+          examples:
+            - 1
+        size:
+          type: integer
+          description: "Jumlah item yang diminta per halaman."
+          examples:
+            - 20
+        pages:
+          type: integer
+          description: "Total jumlah halaman yang tersedia."
+          examples:
+            - 6
+
+    ReportSummaryResponse:
+      type: object
+      description: "Ringkasan jumlah event yang sedang aktif saat ini."
+      properties:
+        total_active_events:
+          type: integer
+          description: "Total event yang berstatus `active` DAN tanggal pelaksanaannya belum lewat pada saat query dijalankan."
+          examples:
+            - 42
+
+    # ------------------------------------------------------------------ Pagination
+    Page_EventResponse:
+      type: object
+      description: "Halaman berisi daftar event, beserta informasi pagination."
+      properties:
+        items:
+          type: array
+          description: "Daftar event pada halaman ini."
+          items:
+            $ref: "#/components/schemas/EventResponse"
+        total_items:
+          type: integer
+          description: "Total event di semua halaman."
+          examples:
+            - 85
+        page:
+          type: integer
+          description: "Nomor halaman saat ini (dimulai dari 1)."
+          examples:
+            - 1
+        page_size:
+          type: integer
+          description: "Jumlah item yang diminta per halaman."
+          examples:
+            - 20
+        total_pages:
+          type: integer
+          description: "Total jumlah halaman yang tersedia (dihitung dari `total_items / page_size`)."
+          examples:
+            - 5
+
+    # ------------------------------------------------------------------ Errors
+    ErrorDetail:
+      type: object
+      description: "Detail error yang dikembalikan oleh API."
+      required: [code, message, httpStatus]
+      properties:
+        code:
+          type: string
+          description: "Kode error yang unik dan dapat dibaca program. Gunakan nilai ini untuk penanganan error di sisi klien."
+          examples:
+            - "UNAUTHORIZED"
+        message:
+          type: string
+          description: "Pesan error yang dapat dibaca manusia, menjelaskan apa yang terjadi."
+          examples:
+            - "Could not validate credentials."
+        httpStatus:
+          type: integer
+          description: "Kode HTTP status, sama dengan status code respons."
+          examples:
+            - 401
+
+    ErrorEnvelope:
+      type: object
+      description: "Struktur JSON standar untuk semua respons error di API-X."
+      required: [error]
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorDetail"
+      examples:
+        unauthorized:
+          summary: "401 Unauthorized"
+          value:
+            error:
+              code: "UNAUTHORIZED"
+              message: "Could not validate credentials."
+              httpStatus: 401
+        forbidden:
+          summary: "403 Forbidden"
+          value:
+            error:
+              code: "FORBIDDEN"
+              message: "You do not have permission to perform this action."
+              httpStatus: 403
+        not_found:
+          summary: "404 Not Found"
+          value:
+            error:
+              code: "EVENT_NOT_FOUND"
+              message: "Event not found."
+              httpStatus: 404
+        validation_error:
+          summary: "422 Validation Error"
+          value:
+            error:
+              code: "VALIDATION_ERROR"
+              message: "value is not a valid email address"
+              httpStatus: 422
+
+tags:
+  - name: auth
+    description: |
+      **Autentikasi dan otorisasi pengguna.**
+
+      Endpoint untuk mendaftarkan akun baru, login untuk mendapatkan JWT token,
+      dan melihat profil pengguna yang sedang login.
+
+      Semua endpoint di grup ini tidak memerlukan autentikasi, kecuali `GET /auth/me`.
+
+  - name: admin
+    description: |
+      **Manajemen pengguna oleh admin.** *(Khusus admin)*
+
+      Endpoint untuk melihat daftar semua pengguna terdaftar.
+      Memerlukan token dengan role `admin`.
+
+  - name: admin-events
+    description: |
+      **Manajemen event oleh admin** *(Khusus admin)*
+
+      Endpoint untuk membuat, membaca detail, memperbarui, dan menghapus event.
+      Memerlukan token dengan role `admin`.
+
+      Endpoint publik untuk menjelajahi event tersedia di grup **events**.
+
+  - name: events
+    description: |
+      **Penjelajahan event publik.**
+
+      Endpoint untuk melihat daftar event tersedia dan detail satu event.
+      Dapat diakses tanpa autentikasi oleh siapa pun.
+
+  - name: registrations
+    description: |
+      **Pendaftaran peserta ke event.** *(Memerlukan token)*
+
+      Endpoint untuk mendaftar ke sebuah event, membatalkan pendaftaran,
+      dan melihat daftar event yang sudah didaftarkan oleh pengguna yang sedang login.
+
+      Memerlukan JWT token pengguna terdaftar (role `user` atau `admin`).
+
+  - name: Admin Reporting
+    description: |
+      **Laporan statistik event untuk admin.** *(Khusus admin)*
+
+      Endpoint untuk melihat statistik peserta per event aktif dan ringkasan
+      jumlah event yang sedang aktif.
+
+      Memerlukan token dengan role `admin`.
+
+paths:
+
+  # ================================================================ Auth
+  /auth/register:
+    post:
+      tags: [auth]
+      summary: "Daftarkan akun pengguna baru"
+      description: |
+        Membuat akun pengguna baru dengan nama, email, dan kata sandi.
+
+        **Akses**: Publik — tidak memerlukan autentikasi.
+
+        **Aturan**:
+        - Email harus unik; tidak boleh sama dengan email yang sudah terdaftar.
+        - Kata sandi minimal 8 karakter dan disimpan sebagai hash bcrypt (tidak pernah plain text).
+        - Akun baru secara default memiliki role `user`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+            example:
+              name: "Budi Santoso"
+              email: "budi@contoh.com"
+              password: "R4h4sia!Kuat"
+      responses:
+        "201":
+          description: "Akun berhasil dibuat. Mengembalikan data profil pengguna baru."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserRead"
+              example:
+                id: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+                name: "Budi Santoso"
+                email: "budi@contoh.com"
+                role: "user"
+                created_at: "2026-03-09T08:00:00Z"
+        "409":
+          description: "Email sudah digunakan oleh akun lain."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "EMAIL_ALREADY_EXISTS"
+                  message: "An account with this email already exists."
+                  httpStatus: 409
+        "422":
+          description: "Data request tidak valid (format email salah, kata sandi terlalu pendek, dll.)."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "VALIDATION_ERROR"
+                  message: "value is not a valid email address"
+                  httpStatus: 422
+
+  /auth/login:
+    post:
+      tags: [auth]
+      summary: "Login dan dapatkan JWT access token"
+      description: |
+        Memverifikasi email dan kata sandi, lalu mengembalikan JWT access token
+        yang digunakan untuk mengakses endpoint terproteksi.
+
+        **Akses**: Publik — tidak memerlukan autentikasi.
+
+        **Penting**: Setelah mendapatkan token, gunakan tombol **Authorize** di atas
+        atau sertakan di header: `Authorization: Bearer <token>`.
+
+        Token berlaku selama **60 menit** sejak diterbitkan.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+            example:
+              email: "budi@contoh.com"
+              password: "R4h4sia!Kuat"
+      responses:
+        "200":
+          description: "Login berhasil. Mengembalikan JWT access token."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TokenResponse"
+              example:
+                access_token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmNDdhYzEwYi01OGNjLTQzNzItYTU2Ny0wZTAyYjJjM2Q0NzkiLCJyb2xlIjoidXNlciIsImlhdCI6MTc0MTUwMDAwMCwiZXhwIjoxNzQxNTAzNjAwfQ.signature"
+                token_type: "bearer"
+        "401":
+          description: "Kredensial tidak valid (email tidak terdaftar atau kata sandi salah)."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "Could not validate credentials."
+                  httpStatus: 401
+        "422":
+          description: "Data request tidak valid."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "VALIDATION_ERROR"
+                  message: "value is not a valid email address"
+                  httpStatus: 422
+
+  /auth/me:
+    get:
+      tags: [auth]
+      summary: "Lihat profil pengguna yang sedang login"
+      description: |
+        Mengembalikan data profil pengguna yang saat ini terautentikasi berdasarkan JWT token.
+
+        **Akses**: Memerlukan token — sertakan JWT di header `Authorization: Bearer <token>`.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: "Profil pengguna berhasil diambil."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserRead"
+              example:
+                id: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+                name: "Budi Santoso"
+                email: "budi@contoh.com"
+                role: "user"
+                created_at: "2026-03-01T08:00:00Z"
+        "401":
+          description: "Token tidak ada, tidak valid, atau sudah kedaluwarsa."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "Could not validate credentials."
+                  httpStatus: 401
+
+  # ================================================================ Admin Users
+  /admin/users:
+    get:
+      tags: [admin]
+      summary: "Daftar semua pengguna terdaftar (khusus admin)"
+      description: |
+        Mengembalikan daftar semua pengguna yang terdaftar di sistem.
+
+        **Akses**: Khusus admin — memerlukan JWT token dengan role `admin`.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: "Daftar pengguna berhasil diambil."
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserRead"
+              example:
+                - id: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+                  name: "Budi Santoso"
+                  email: "budi@contoh.com"
+                  role: "user"
+                  created_at: "2026-03-01T08:00:00Z"
+                - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                  name: "Siti Admin"
+                  email: "siti@contoh.com"
+                  role: "admin"
+                  created_at: "2026-01-15T09:00:00Z"
+        "401":
+          description: "Token tidak ada, tidak valid, atau sudah kedaluwarsa."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "Could not validate credentials."
+                  httpStatus: 401
+        "403":
+          description: "Token valid tapi bukan role admin."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "FORBIDDEN"
+                  message: "You do not have permission to perform this action."
+                  httpStatus: 403
+
+  # ================================================================ Admin Events
+  /admin/events:
+    post:
+      tags: [admin-events]
+      summary: "Buat event baru (khusus admin)"
+      description: |
+        Membuat event baru dengan informasi judul, deskripsi, tanggal, batas pendaftaran, dan kuota.
+
+        **Akses**: Khusus admin — memerlukan JWT token dengan role `admin`.
+
+        **Aturan**:
+        - `registration_deadline` harus sebelum atau sama dengan `date`.
+        - `quota` minimal 1.
+        - Event yang baru dibuat langsung berstatus `active`.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventCreate"
+            example:
+              title: "Workshop Python Lanjutan"
+              description: "Workshop intensif satu hari tentang FastAPI dan Pydantic v2."
+              date: "2026-06-15T09:00:00+07:00"
+              registration_deadline: "2026-06-10T23:59:59+07:00"
+              quota: 50
+      responses:
+        "201":
+          description: "Event berhasil dibuat."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventResponse"
+              example:
+                id: 42
+                title: "Workshop Python Lanjutan"
+                description: "Workshop intensif satu hari tentang FastAPI dan Pydantic v2."
+                date: "2026-06-15T09:00:00"
+                registration_deadline: "2026-06-10T23:59:59"
+                quota: 50
+                status: "active"
+                created_at: "2026-03-09T08:00:00"
+                registration_closed: false
+        "401":
+          description: "Token tidak ada, tidak valid, atau sudah kedaluwarsa."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "Could not validate credentials."
+                  httpStatus: 401
+        "403":
+          description: "Token valid tapi bukan role admin."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "FORBIDDEN"
+                  message: "You do not have permission to perform this action."
+                  httpStatus: 403
+        "422":
+          description: "Data tidak valid — misalnya `registration_deadline` setelah `date`, atau `quota` kurang dari 1."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              examples:
+                invalid_date_range:
+                  summary: "registration_deadline setelah date"
+                  value:
+                    error:
+                      code: "INVALID_DATE_RANGE"
+                      message: "registration_deadline must be on or before the event date"
+                      httpStatus: 422
+                validation_error:
+                  summary: "Field tidak valid"
+                  value:
+                    error:
+                      code: "VALIDATION_ERROR"
+                      message: "Input should be greater than or equal to 1"
+                      httpStatus: 422
+
+  /admin/events/{event_id}:
+    get:
+      tags: [admin-events]
+      summary: "Ambil detail event (khusus admin)"
+      description: |
+        Mengembalikan detail lengkap satu event berdasarkan ID, termasuk event yang sudah dihapus.
+
+        **Akses**: Khusus admin — memerlukan JWT token dengan role `admin`.
+
+        Berbeda dengan `GET /events/{event_id}` (publik) yang hanya mengembalikan event aktif.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: event_id
+          in: path
+          required: true
+          description: "ID unik event yang ingin dilihat detailnya."
+          schema:
+            type: integer
+            minimum: 1
+          examples:
+            valid:
+              value: 42
+      responses:
+        "200":
+          description: "Detail event berhasil diambil."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventResponse"
+              example:
+                id: 42
+                title: "Workshop Python Lanjutan"
+                description: "Workshop intensif satu hari tentang FastAPI dan Pydantic v2."
+                date: "2026-06-15T09:00:00"
+                registration_deadline: "2026-06-10T23:59:59"
+                quota: 50
+                status: "active"
+                created_at: "2026-03-09T08:00:00"
+                registration_closed: false
+        "401":
+          description: "Token tidak ada, tidak valid, atau sudah kedaluwarsa."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "Could not validate credentials."
+                  httpStatus: 401
+        "403":
+          description: "Token valid tapi bukan role admin."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "FORBIDDEN"
+                  message: "You do not have permission to perform this action."
+                  httpStatus: 403
+        "404":
+          description: "Event dengan ID tersebut tidak ditemukan."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "EVENT_NOT_FOUND"
+                  message: "Event not found."
+                  httpStatus: 404
+
+    put:
+      tags: [admin-events]
+      summary: "Perbarui informasi event (khusus admin)"
+      description: |
+        Memperbarui satu atau lebih field event yang sudah ada. Hanya field yang disertakan
+        dalam request body yang akan diperbarui (partial update).
+
+        **Akses**: Khusus admin — memerlukan JWT token dengan role `admin`.
+
+        **Aturan**:
+        - Jika `quota` diperbarui, nilai baru tidak boleh lebih kecil dari jumlah peserta aktif saat ini.
+        - Jika `registration_deadline` dan `date` keduanya disertakan, `registration_deadline` harus ≤ `date`.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: event_id
+          in: path
+          required: true
+          description: "ID unik event yang akan diperbarui."
+          schema:
+            type: integer
+            minimum: 1
+          examples:
+            valid:
+              value: 42
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventUpdate"
+            example:
+              title: "Workshop Python Lanjutan — Edisi Revisi"
+              quota: 75
+      responses:
+        "200":
+          description: "Event berhasil diperbarui."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventResponse"
+              example:
+                id: 42
+                title: "Workshop Python Lanjutan — Edisi Revisi"
+                description: "Workshop intensif satu hari tentang FastAPI dan Pydantic v2."
+                date: "2026-06-15T09:00:00"
+                registration_deadline: "2026-06-10T23:59:59"
+                quota: 75
+                status: "active"
+                created_at: "2026-03-09T08:00:00"
+                registration_closed: false
+        "401":
+          description: "Token tidak ada, tidak valid, atau sudah kedaluwarsa."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "Could not validate credentials."
+                  httpStatus: 401
+        "403":
+          description: "Token valid tapi bukan role admin."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "FORBIDDEN"
+                  message: "You do not have permission to perform this action."
+                  httpStatus: 403
+        "404":
+          description: "Event dengan ID tersebut tidak ditemukan."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "EVENT_NOT_FOUND"
+                  message: "Event not found."
+                  httpStatus: 404
+        "409":
+          description: "Kuota baru lebih kecil dari jumlah peserta aktif."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "QUOTA_BELOW_PARTICIPANTS"
+                  message: "New quota is below the current number of active participants."
+                  httpStatus: 409
+        "422":
+          description: "Data tidak valid."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "VALIDATION_ERROR"
+                  message: "Input should be greater than or equal to 1"
+                  httpStatus: 422
+
+    delete:
+      tags: [admin-events]
+      summary: "Hapus event (khusus admin)"
+      description: |
+        Menghapus event secara soft delete — status event diubah menjadi `deleted` dan event
+        tidak lagi muncul di endpoint publik, tapi data tetap tersimpan di database.
+
+        **Akses**: Khusus admin — memerlukan JWT token dengan role `admin`.
+
+        Mengembalikan **204 No Content** jika berhasil (tidak ada body respons).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: event_id
+          in: path
+          required: true
+          description: "ID unik event yang akan dihapus."
+          schema:
+            type: integer
+            minimum: 1
+          examples:
+            valid:
+              value: 42
+      responses:
+        "204":
+          description: "Event berhasil dihapus. Tidak ada body respons."
+        "401":
+          description: "Token tidak ada, tidak valid, atau sudah kedaluwarsa."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "Could not validate credentials."
+                  httpStatus: 401
+        "403":
+          description: "Token valid tapi bukan role admin."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "FORBIDDEN"
+                  message: "You do not have permission to perform this action."
+                  httpStatus: 403
+        "404":
+          description: "Event dengan ID tersebut tidak ditemukan."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "EVENT_NOT_FOUND"
+                  message: "Event not found."
+                  httpStatus: 404
+
+  # ================================================================ Public Events
+  /events:
+    get:
+      tags: [events]
+      summary: "Daftar event yang tersedia"
+      description: |
+        Mengembalikan daftar event yang berstatus `active` secara terpaginasi.
+
+        **Akses**: Publik — tidak memerlukan autentikasi.
+
+        Hasil diurutkan berdasarkan tanggal terdekat. Event dengan status `deleted` tidak ditampilkan.
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: "Nomor halaman yang diminta (dimulai dari 1)."
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          examples:
+            first_page:
+              summary: "Halaman pertama"
+              value: 1
+        - name: page_size
+          in: query
+          required: false
+          description: "Jumlah event per halaman (minimal 1, maksimal 100)."
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          examples:
+            default_size:
+              summary: "20 per halaman (default)"
+              value: 20
+      responses:
+        "200":
+          description: "Daftar event berhasil diambil."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Page_EventResponse"
+              example:
+                items:
+                  - id: 42
+                    title: "Workshop Python Lanjutan"
+                    description: "Workshop intensif satu hari tentang FastAPI dan Pydantic v2."
+                    date: "2026-06-15T09:00:00"
+                    registration_deadline: "2026-06-10T23:59:59"
+                    quota: 50
+                    status: "active"
+                    created_at: "2026-03-09T08:00:00"
+                    registration_closed: false
+                total_items: 85
+                page: 1
+                page_size: 20
+                total_pages: 5
+        "422":
+          description: "Parameter tidak valid (misalnya `page` kurang dari 1 atau `page_size` lebih dari 100)."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "VALIDATION_ERROR"
+                  message: "Input should be greater than or equal to 1"
+                  httpStatus: 422
+
+  /events/{event_id}:
+    get:
+      tags: [events]
+      summary: "Ambil detail satu event"
+      description: |
+        Mengembalikan detail lengkap satu event berdasarkan ID.
+
+        **Akses**: Publik — tidak memerlukan autentikasi.
+
+        Hanya mengembalikan event dengan status `active`. Event yang sudah dihapus
+        akan mengembalikan 404, bukan data event.
+      parameters:
+        - name: event_id
+          in: path
+          required: true
+          description: "ID unik event yang ingin dilihat detailnya."
+          schema:
+            type: integer
+            minimum: 1
+          examples:
+            valid:
+              value: 42
+      responses:
+        "200":
+          description: "Detail event berhasil diambil."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventResponse"
+              example:
+                id: 42
+                title: "Workshop Python Lanjutan"
+                description: "Workshop intensif satu hari tentang FastAPI dan Pydantic v2."
+                date: "2026-06-15T09:00:00"
+                registration_deadline: "2026-06-10T23:59:59"
+                quota: 50
+                status: "active"
+                created_at: "2026-03-09T08:00:00"
+                registration_closed: false
+        "404":
+          description: "Event tidak ditemukan atau sudah dihapus."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "EVENT_NOT_FOUND"
+                  message: "Event not found."
+                  httpStatus: 404
+
+  # ================================================================ Registrations
+  /registrations/{event_id}:
+    post:
+      tags: [registrations]
+      summary: "Daftar ke sebuah event"
+      description: |
+        Mendaftarkan pengguna yang sedang login ke event yang ditentukan.
+
+        **Akses**: Memerlukan token — sertakan JWT di header `Authorization: Bearer <token>`.
+
+        **Aturan**:
+        - Pengguna tidak boleh mendaftar ke event yang sudah mereka daftarkan (dan pendaftaran masih aktif).
+        - Kuota event tidak boleh sudah penuh.
+        - Batas waktu pendaftaran event belum boleh lewat.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: event_id
+          in: path
+          required: true
+          description: "ID event yang ingin didaftarkan."
+          schema:
+            type: integer
+            minimum: 1
+          examples:
+            valid:
+              value: 42
+      responses:
+        "201":
+          description: "Pendaftaran berhasil."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistrationResponse"
+              example:
+                id: 101
+                event_id: 42
+                status: "active"
+                registered_at: "2026-03-09T10:30:00"
+        "401":
+          description: "Token tidak ada, tidak valid, atau sudah kedaluwarsa."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "Could not validate credentials."
+                  httpStatus: 401
+        "404":
+          description: "Event tidak ditemukan."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "EVENT_NOT_FOUND"
+                  message: "Event not found."
+                  httpStatus: 404
+        "409":
+          description: "Pendaftaran gagal karena salah satu kondisi: sudah terdaftar, kuota penuh, atau batas waktu lewat."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              examples:
+                duplicate:
+                  summary: "Sudah terdaftar ke event ini"
+                  value:
+                    error:
+                      code: "DUPLICATE_REGISTRATION"
+                      message: "You already have an active registration for this event."
+                      httpStatus: 409
+                quota_full:
+                  summary: "Kuota event sudah penuh"
+                  value:
+                    error:
+                      code: "QUOTA_FULL"
+                      message: "Event quota is full."
+                      httpStatus: 409
+                deadline_passed:
+                  summary: "Batas waktu pendaftaran sudah lewat"
+                  value:
+                    error:
+                      code: "REGISTRATION_DEADLINE_PASSED"
+                      message: "Registration deadline has passed."
+                      httpStatus: 409
+
+    delete:
+      tags: [registrations]
+      summary: "Batalkan pendaftaran dari sebuah event"
+      description: |
+        Membatalkan pendaftaran aktif pengguna yang sedang login dari event yang ditentukan.
+
+        **Akses**: Memerlukan token — sertakan JWT di header `Authorization: Bearer <token>`.
+
+        Mengembalikan **204 No Content** jika berhasil (tidak ada body respons).
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: event_id
+          in: path
+          required: true
+          description: "ID event yang ingin dibatalkan pendaftarannya."
+          schema:
+            type: integer
+            minimum: 1
+          examples:
+            valid:
+              value: 42
+      responses:
+        "204":
+          description: "Pendaftaran berhasil dibatalkan. Tidak ada body respons."
+        "401":
+          description: "Token tidak ada, tidak valid, atau sudah kedaluwarsa."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "Could not validate credentials."
+                  httpStatus: 401
+        "404":
+          description: "Tidak ada pendaftaran aktif yang dapat dibatalkan untuk event ini."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "NO_ACTIVE_REGISTRATION"
+                  message: "No active registration found for this event."
+                  httpStatus: 404
+
+  /registrations/me:
+    get:
+      tags: [registrations]
+      summary: "Lihat daftar event yang sudah didaftarkan"
+      description: |
+        Mengembalikan semua pendaftaran milik pengguna yang sedang login, beserta
+        ringkasan informasi setiap event yang didaftarkan.
+
+        **Akses**: Memerlukan token — sertakan JWT di header `Authorization: Bearer <token>`.
+
+        Mengembalikan semua pendaftaran termasuk yang sudah dibatalkan (status `cancelled`).
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: "Daftar pendaftaran berhasil diambil."
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RegistrationWithEventResponse"
+              example:
+                - id: 101
+                  event_id: 42
+                  status: "active"
+                  registered_at: "2026-03-09T10:30:00"
+                  cancelled_at: null
+                  event:
+                    id: 42
+                    title: "Workshop Python Lanjutan"
+                    date: "2026-06-15T09:00:00"
+                    registration_deadline: "2026-06-10T23:59:59"
+                    status: "active"
+        "401":
+          description: "Token tidak ada, tidak valid, atau sudah kedaluwarsa."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "Could not validate credentials."
+                  httpStatus: 401
+
+  # ================================================================ Admin Reports
+  /admin/reports/events/stats:
+    get:
+      tags: [Admin Reporting]
+      summary: "Statistik peserta per event aktif (khusus admin)"
+      description: |
+        Mengembalikan daftar event aktif beserta statistik jumlah peserta terdaftar
+        dan sisa kuota untuk setiap event, secara terpaginasi.
+
+        **Akses**: Khusus admin — memerlukan JWT token dengan role `admin`.
+
+        **Definisi "event aktif"**: Event dengan status `active` DAN tanggal pelaksanaan
+        belum lewat saat query dijalankan.
+
+        **`total_registered`**: Hanya menghitung pendaftaran dengan status `active`;
+        pendaftaran yang dibatalkan tidak dihitung.
+
+        **`remaining_quota`**: `quota − total_registered`. Dapat bernilai negatif
+        jika ada anomali data — tidak di-clamp ke nol agar admin dapat mendeteksinya.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: "Nomor halaman yang diminta (dimulai dari 1)."
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          examples:
+            first_page:
+              value: 1
+        - name: page_size
+          in: query
+          required: false
+          description: "Jumlah event per halaman (minimal 1, maksimal 100)."
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          examples:
+            default_size:
+              value: 20
+      responses:
+        "200":
+          description: "Statistik peserta berhasil diambil."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventStatsPage"
+              example:
+                items:
+                  - id: 42
+                    title: "Workshop Python Lanjutan"
+                    date: "2026-06-15T09:00:00"
+                    quota: 50
+                    total_registered: 37
+                    remaining_quota: 13
+                  - id: 43
+                    title: "Seminar Cloud Architecture"
+                    date: "2026-07-01T13:00:00"
+                    quota: 100
+                    total_registered: 100
+                    remaining_quota: 0
+                total: 120
+                page: 1
+                size: 20
+                pages: 6
+        "401":
+          description: "Token tidak ada, tidak valid, atau sudah kedaluwarsa."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "Could not validate credentials."
+                  httpStatus: 401
+        "403":
+          description: "Token valid tapi bukan role admin."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "FORBIDDEN"
+                  message: "You do not have permission to perform this action."
+                  httpStatus: 403
+
+  /admin/reports/events/summary:
+    get:
+      tags: [Admin Reporting]
+      summary: "Ringkasan jumlah event aktif (khusus admin)"
+      description: |
+        Mengembalikan total jumlah event yang sedang aktif saat ini sebagai angka tunggal.
+
+        **Akses**: Khusus admin — memerlukan JWT token dengan role `admin`.
+
+        **Definisi "event aktif"**: Event dengan status `active` DAN tanggal pelaksanaan
+        belum lewat saat query dijalankan.
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: "Ringkasan berhasil diambil."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportSummaryResponse"
+              example:
+                total_active_events: 42
+        "401":
+          description: "Token tidak ada, tidak valid, atau sudah kedaluwarsa."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "Could not validate credentials."
+                  httpStatus: 401
+        "403":
+          description: "Token valid tapi bukan role admin."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: "FORBIDDEN"
+                  message: "You do not have permission to perform this action."
+                  httpStatus: 403

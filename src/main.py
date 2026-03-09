@@ -3,14 +3,17 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exception_handlers import (
     http_exception_handler as _default_http_exc_handler,
 )
 from fastapi.exceptions import RequestValidationError
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import JSONResponse, Response
 
+from src.api.docs_metadata import API_DESCRIPTION, API_TITLE, API_VERSION, OPENAPI_TAGS
 from src.api.schemas.errors import ErrorDetail, ErrorEnvelope
 from src.domain.exceptions import (
     DuplicateActiveRegistrationError,
@@ -27,7 +30,35 @@ from src.domain.exceptions import (
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="API-X Authentication", version="1.0.0")
+app = FastAPI(
+    title=API_TITLE,
+    version=API_VERSION,
+    description=API_DESCRIPTION,
+    openapi_tags=OPENAPI_TAGS,
+)
+
+
+def custom_openapi() -> dict[str, Any]:
+    if app.openapi_schema:
+        return app.openapi_schema
+    schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        tags=app.openapi_tags,
+        routes=app.routes,
+    )
+    schema.setdefault("components", {}).setdefault("securitySchemes", {})["BearerAuth"] = {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Token dari POST /auth/login. Format: `Bearer <token>`",
+    }
+    app.openapi_schema = schema
+    return schema
+
+
+app.openapi = custom_openapi  # type: ignore[method-assign]
 
 
 # ---------------------------------------------------------------------------
