@@ -1,4 +1,5 @@
 """Unit tests for auth_service register() and login() use cases."""
+
 from __future__ import annotations
 
 from datetime import UTC
@@ -12,6 +13,7 @@ from src.domain.models import User, UserRole
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _make_user(**overrides) -> User:
     from datetime import datetime
@@ -32,15 +34,14 @@ def _make_user(**overrides) -> User:
 # register() tests
 # ---------------------------------------------------------------------------
 
+
 @pytest.mark.asyncio
 async def test_register_success():
     session = AsyncMock()
     expected_user = _make_user()
 
     with (
-        patch(
-            "src.application.auth_service.UserRepository"
-        ) as MockRepo,
+        patch("src.application.auth_service.UserRepository") as MockRepo,
         patch(
             "src.application.auth_service.hash_password",
             return_value="$2b$12$fakehash",
@@ -102,6 +103,7 @@ async def test_register_password_is_hashed_not_plain():
 # ---------------------------------------------------------------------------
 # login() tests
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.asyncio
 async def test_login_success_returns_token():

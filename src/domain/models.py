@@ -1,4 +1,5 @@
 """Domain models for the authentication and event-management features."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

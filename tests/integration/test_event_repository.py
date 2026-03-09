@@ -1,4 +1,5 @@
 """Integration tests for EventRepository (T022)."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -171,14 +172,16 @@ async def test_list_public_same_date_title_asc():
         from src.infrastructure.db.models import Event as OrmEvent
 
         for title in ("Z Event", "A Event", "M Event"):
-            session.add(OrmEvent(
-                title=title,
-                description="d",
-                date=same_date,
-                registration_deadline=_future(20),
-                quota=10,
-                status=EventStatus.ACTIVE,
-            ))
+            session.add(
+                OrmEvent(
+                    title=title,
+                    description="d",
+                    date=same_date,
+                    registration_deadline=_future(20),
+                    quota=10,
+                    status=EventStatus.ACTIVE,
+                )
+            )
         await session.commit()
 
         repo = EventRepository(session)

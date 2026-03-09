@@ -9,11 +9,16 @@ Idempotent: skips creation if the email already exists.
 Reads credentials from the SEED_ADMIN_EMAIL and SEED_ADMIN_PASSWORD
 environment variables (or from a .env file via pydantic-settings).
 """
+
 from __future__ import annotations
 
 import asyncio
 import os
 import sys
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Add repo root to path so src/ is importable when run as a script
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -64,7 +69,9 @@ async def seed_admin() -> None:
             await session.commit()
             print(f"Admin user created: id={user.id} email={user.email}")
         except EmailAlreadyExistsError:
-            print(f"Admin user already exists (concurrent creation): {email} — skipping.")
+            print(
+                f"Admin user already exists (concurrent creation): {email} — skipping."
+            )
 
     await engine.dispose()
 

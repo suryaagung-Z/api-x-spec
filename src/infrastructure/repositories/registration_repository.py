@@ -1,4 +1,5 @@
 """Async repository for EventRegistration CRUD operations."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime
@@ -49,9 +50,7 @@ class RegistrationRepository:
         row = result.scalar_one_or_none()
         return row
 
-    async def create_registration(
-        self, user_id: str, event_id: int
-    ) -> OrmRegistration:
+    async def create_registration(self, user_id: str, event_id: int) -> OrmRegistration:
         """Insert a new ACTIVE registration row and return it."""
         orm = OrmRegistration(
             user_id=user_id,
@@ -68,9 +67,7 @@ class RegistrationRepository:
     # US2/US3: Cancel
     # ------------------------------------------------------------------
 
-    async def cancel_registration(
-        self, user_id: str, event_id: int
-    ) -> None:
+    async def cancel_registration(self, user_id: str, event_id: int) -> None:
         """Soft-cancel: set status=CANCELLED and populate cancelled_at."""
         stmt = (
             sa_update(OrmRegistration)
@@ -100,9 +97,7 @@ class RegistrationRepository:
     # US3: List my registrations
     # ------------------------------------------------------------------
 
-    async def get_my_registrations(
-        self, user_id: str
-    ) -> list[OrmRegistration]:
+    async def get_my_registrations(self, user_id: str) -> list[OrmRegistration]:
         """Return all registrations for a user, newest first, with event loaded."""
         result = await self._session.execute(
             select(OrmRegistration)

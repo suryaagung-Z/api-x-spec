@@ -1,4 +1,5 @@
 """Unit tests for registration_service use cases (T009, T016, T020, T027)."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta

@@ -1,4 +1,5 @@
 """Contract tests for GET /auth/me (protected endpoint)."""
+
 from __future__ import annotations
 
 import time
@@ -46,7 +47,7 @@ async def test_me_expired_token_returns_401(test_client: AsyncClient):
         "iat": int(time.time()) - 7200,
         "exp": int(time.time()) - 3600,
     }
-    token = jwt.encode(expired_payload, "test-secret", algorithm="HS256")
+    token = jwt.encode(expired_payload, "<CqHljtfPF$lpc<+2_2nfx5AQWxobShJ1Z9K:kqh5p.", algorithm="HS256")
     response = await test_client.get(
         "/auth/me", headers={"Authorization": f"Bearer {token}"}
     )
@@ -63,7 +64,7 @@ async def test_me_tampered_token_returns_401(test_client: AsyncClient):
         "iat": int(time.time()),
         "exp": int(time.time()) + 3600,
     }
-    tampered = jwt.encode(payload, "wrong-secret", algorithm="HS256")
+    tampered = jwt.encode(payload, "|JyA*n<=L^cgcU%m^qy*juwDh^qHo<2xCO5&@pUmUBz", algorithm="HS256")
     response = await test_client.get(
         "/auth/me", headers={"Authorization": f"Bearer {tampered}"}
     )

@@ -1,4 +1,5 @@
 """Contract tests for public event endpoints (T021 + T028)."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -81,9 +82,7 @@ async def test_public_list_events_deleted_excluded(
 ):
     """Deleted events must not appear in the public list."""
     event = await _create_event(test_client, admin_auth_headers, title="To Be Deleted")
-    await test_client.delete(
-        f"/admin/events/{event['id']}", headers=admin_auth_headers
-    )
+    await test_client.delete(f"/admin/events/{event['id']}", headers=admin_auth_headers)
     r = await test_client.get("/events")
     assert r.status_code == 200
     ids = [item["id"] for item in r.json()["items"]]
@@ -140,9 +139,7 @@ async def test_public_list_events_high_page_returns_empty(
 # ===========================================================================
 
 
-async def test_public_get_event_200(
-    test_client: AsyncClient, admin_auth_headers: dict
-):
+async def test_public_get_event_200(test_client: AsyncClient, admin_auth_headers: dict):
     event = await _create_event(test_client, admin_auth_headers)
     r = await test_client.get(f"/events/{event['id']}")
     assert r.status_code == 200
@@ -164,9 +161,7 @@ async def test_public_get_event_404_deleted(
 ):
     """A deleted event must not be accessible via the public endpoint."""
     event = await _create_event(test_client, admin_auth_headers)
-    await test_client.delete(
-        f"/admin/events/{event['id']}", headers=admin_auth_headers
-    )
+    await test_client.delete(f"/admin/events/{event['id']}", headers=admin_auth_headers)
     r = await test_client.get(f"/events/{event['id']}")
     assert r.status_code == 404
 

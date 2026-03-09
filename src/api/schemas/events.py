@@ -1,4 +1,5 @@
 """Pydantic v2 schemas for event endpoints."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime

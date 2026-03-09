@@ -1,4 +1,5 @@
 """Application-layer use cases for event registration (no HTTP imports)."""
+
 from __future__ import annotations
 
 import logging
@@ -76,9 +77,7 @@ async def register(
     return RegistrationResponse.model_validate(orm)
 
 
-async def cancel(
-    session: AsyncSession, user_id: str, event_id: int
-) -> None:
+async def cancel(session: AsyncSession, user_id: str, event_id: int) -> None:
     """Cancel a user's active registration for an event.
 
     Guards (evaluated in order):

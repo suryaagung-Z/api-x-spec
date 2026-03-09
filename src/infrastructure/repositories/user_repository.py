@@ -1,4 +1,5 @@
 """User repository: async data access layer for the users table."""
+
 from __future__ import annotations
 
 import uuid

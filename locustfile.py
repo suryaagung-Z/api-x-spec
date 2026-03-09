@@ -5,6 +5,7 @@ Usage (run from repo root with server running on port 8000):
 
 Threshold: ≥95% of requests complete in <5 s (SC-001).
 """
+
 from __future__ import annotations
 
 import uuid

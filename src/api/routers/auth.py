@@ -1,4 +1,5 @@
 """Auth router: register, login, and current-user endpoints."""
+
 from __future__ import annotations
 
 import logging

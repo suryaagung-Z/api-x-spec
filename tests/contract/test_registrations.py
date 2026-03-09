@@ -1,4 +1,5 @@
 """Contract tests for event registration endpoints (T008, T015, T018, T019)."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta

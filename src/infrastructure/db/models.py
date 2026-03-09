@@ -1,4 +1,5 @@
 """SQLAlchemy 2.x async ORM models for users, events, and event registrations."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime

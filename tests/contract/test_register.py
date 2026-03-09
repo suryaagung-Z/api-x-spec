@@ -1,4 +1,5 @@
 """Contract tests for POST /auth/register."""
+
 from __future__ import annotations
 
 import pytest

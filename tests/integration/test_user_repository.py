@@ -1,4 +1,5 @@
 """Integration tests for UserRepository against a real in-memory SQLite DB."""
+
 from __future__ import annotations
 
 import pytest

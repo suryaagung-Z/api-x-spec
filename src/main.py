@@ -1,4 +1,5 @@
 """FastAPI application factory."""
+
 from __future__ import annotations
 
 import logging
@@ -128,12 +129,14 @@ from src.api.routers import admin, auth  # noqa: E402
 from src.api.routers.events import admin_router as events_admin_router  # noqa: E402
 from src.api.routers.events import public_router as events_public_router  # noqa: E402
 from src.api.routers.registrations import router as registrations_router  # noqa: E402
+from src.api.routers.reports import router as reports_router  # noqa: E402
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(admin.router, prefix="/admin", tags=["admin"])
 app.include_router(events_admin_router)
 app.include_router(events_public_router)
 app.include_router(registrations_router)
+app.include_router(reports_router)
 
 
 # ---------------------------------------------------------------------------

@@ -1,4 +1,5 @@
 """Unit tests for JWT utilities."""
+
 from __future__ import annotations
 
 import time

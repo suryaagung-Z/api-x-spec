@@ -1,4 +1,5 @@
 """Contract tests for GET /admin/users (admin-only endpoint)."""
+
 from __future__ import annotations
 
 import pytest

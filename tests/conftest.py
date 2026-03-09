@@ -1,4 +1,5 @@
 """Shared async pytest fixtures for all test suites."""
+
 from __future__ import annotations
 
 import pytest_asyncio

@@ -1,4 +1,5 @@
 """Contract tests for admin event endpoints (T008 + T016)."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -62,8 +63,15 @@ async def test_admin_create_event_response_shape(
     assert r.status_code == 201
     body = r.json()
     required_fields = {
-        "id", "title", "description", "date", "registration_deadline",
-        "quota", "status", "created_at", "registration_closed"
+        "id",
+        "title",
+        "description",
+        "date",
+        "registration_deadline",
+        "quota",
+        "status",
+        "created_at",
+        "registration_closed",
     }
     assert required_fields.issubset(body.keys())
 
@@ -74,7 +82,7 @@ async def test_admin_create_event_422_deadline_after_date(
     """deadline > date must return 422."""
     bad_body = {
         **_VALID_EVENT,
-        "date": _FUTURE_DEADLINE,          # earlier
+        "date": _FUTURE_DEADLINE,  # earlier
         "registration_deadline": _FUTURE_DATE,  # later → invalid
     }
     r = await test_client.post(
@@ -94,9 +102,7 @@ async def test_admin_create_event_201_past_deadline_future_date(
         "date": _FUTURE_DATE,
         "registration_deadline": _PAST_DEADLINE,
     }
-    r = await test_client.post(
-        "/admin/events", json=body, headers=admin_auth_headers
-    )
+    r = await test_client.post("/admin/events", json=body, headers=admin_auth_headers)
     assert r.status_code == 201
 
 
@@ -162,9 +168,7 @@ async def test_admin_create_event_403_regular_user(
 # ===========================================================================
 
 
-async def test_admin_get_event_200(
-    test_client: AsyncClient, admin_auth_headers: dict
-):
+async def test_admin_get_event_200(test_client: AsyncClient, admin_auth_headers: dict):
     event = await _create_event(test_client, admin_auth_headers)
     r = await test_client.get(
         f"/admin/events/{event['id']}", headers=admin_auth_headers
@@ -173,9 +177,7 @@ async def test_admin_get_event_200(
     assert r.json()["id"] == event["id"]
 
 
-async def test_admin_get_event_404(
-    test_client: AsyncClient, admin_auth_headers: dict
-):
+async def test_admin_get_event_404(test_client: AsyncClient, admin_auth_headers: dict):
     r = await test_client.get("/admin/events/999999", headers=admin_auth_headers)
     assert r.status_code == 404
     body = r.json()
@@ -280,9 +282,7 @@ async def test_admin_delete_event_already_deleted_404(
 ):
     """Deleting an already-deleted event must return 404."""
     event = await _create_event(test_client, admin_auth_headers)
-    await test_client.delete(
-        f"/admin/events/{event['id']}", headers=admin_auth_headers
-    )
+    await test_client.delete(f"/admin/events/{event['id']}", headers=admin_auth_headers)
     r = await test_client.delete(
         f"/admin/events/{event['id']}", headers=admin_auth_headers
     )

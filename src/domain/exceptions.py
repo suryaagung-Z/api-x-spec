@@ -1,4 +1,5 @@
 """Domain exceptions for the authentication feature."""
+
 from __future__ import annotations
 
 

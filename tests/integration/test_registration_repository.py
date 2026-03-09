@@ -1,4 +1,5 @@
 """Integration tests for RegistrationRepository (T010, T017, T021)."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -185,6 +186,7 @@ async def test_quota_enforcement_sequential_fills_then_rejects():
             else:
                 # Insert row without refresh
                 from src.infrastructure.db.models import EventRegistration as OrmReg
+
                 orm = OrmReg(
                     user_id=f"quota-user-{i}",
                     event_id=event_id,
@@ -201,6 +203,7 @@ async def test_quota_enforcement_sequential_fills_then_rejects():
 
     async with _SessionLocal() as verify_session:
         from sqlalchemy import select
+
         row = await verify_session.execute(
             select(OrmEvent).where(OrmEvent.id == event_id)
         )
@@ -225,7 +228,8 @@ async def test_cancel_sets_cancelled_at():
         await session.flush()
 
         result = await session.execute(
-            __import__("sqlalchemy", fromlist=["select"]).select(OrmRegistration)
+            __import__("sqlalchemy", fromlist=["select"])
+            .select(OrmRegistration)
             .where(OrmRegistration.user_id == "user-cancel")
             .where(OrmRegistration.event_id == event.id)
         )
@@ -295,6 +299,7 @@ async def test_reregistration_after_cancel_creates_new_row():
 
     # Verify two rows: 1 cancelled + 1 active
     from sqlalchemy import select as sa_select
+
     async with _SessionLocal() as session:
         result = await session.execute(
             sa_select(OrmRegistration)

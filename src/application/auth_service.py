@@ -1,4 +1,5 @@
 """Application-layer use cases: register and login (no HTTP imports)."""
+
 from __future__ import annotations
 
 import logging

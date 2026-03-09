@@ -1,4 +1,5 @@
 """Unit tests for hash_password / verify_password."""
+
 from __future__ import annotations
 
 from src.infrastructure.auth.password import hash_password, verify_password

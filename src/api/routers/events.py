@@ -1,4 +1,5 @@
 """Event router: admin CRUD and public browse endpoints."""
+
 from __future__ import annotations
 
 from typing import Annotated

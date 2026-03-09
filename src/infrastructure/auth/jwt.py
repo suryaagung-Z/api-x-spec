@@ -1,4 +1,5 @@
 """JWT creation and decoding utilities."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta

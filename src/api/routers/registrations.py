@@ -1,4 +1,5 @@
 """FastAPI router for event registration endpoints."""
+
 from __future__ import annotations
 
 from typing import Annotated
@@ -46,4 +47,3 @@ async def get_my_registrations(
     session: Annotated[AsyncSession, Depends(get_db)],
 ) -> list[RegistrationWithEventResponse]:
     return await registration_service.get_my_registrations(session, current_user.id)
-

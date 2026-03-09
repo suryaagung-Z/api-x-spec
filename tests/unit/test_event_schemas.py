@@ -1,4 +1,5 @@
 """Unit tests for event Pydantic schemas."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -31,11 +32,13 @@ def _make_event_create(**overrides) -> dict:
 
 
 def test_event_create_valid():
-    e = EventCreate(**{
-        **_make_event_create(),
-        "date": FUTURE + timedelta(days=5),
-        "registration_deadline": FUTURE,
-    })
+    e = EventCreate(
+        **{
+            **_make_event_create(),
+            "date": FUTURE + timedelta(days=5),
+            "registration_deadline": FUTURE,
+        }
+    )
     assert e.quota == 100
 
 

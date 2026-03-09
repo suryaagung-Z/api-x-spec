@@ -1,4 +1,5 @@
 """Unit tests for event_service use cases."""
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -70,9 +71,7 @@ async def test_update_event_quota_below_participants_raises():
     """
     orm = _make_orm_event()
 
-    with patch(
-        "src.application.event_service.EventRepository"
-    ) as MockRepo:
+    with patch("src.application.event_service.EventRepository") as MockRepo:
         repo = MockRepo.return_value
         repo.get_by_id_admin = AsyncMock(return_value=orm)
 
@@ -91,9 +90,7 @@ async def test_update_event_quota_gte_participants_succeeds():
     orm = _make_orm_event()
     updated_orm = _make_orm_event(quota=200)
 
-    with patch(
-        "src.application.event_service.EventRepository"
-    ) as MockRepo:
+    with patch("src.application.event_service.EventRepository") as MockRepo:
         repo = MockRepo.return_value
         repo.get_by_id_admin = AsyncMock(return_value=orm)
         repo.update = AsyncMock(return_value=updated_orm)
@@ -125,9 +122,7 @@ async def test_update_event_only_date_supplied_cross_checks_stored_deadline():
         registration_deadline=stored_deadline,
     )
 
-    with patch(
-        "src.application.event_service.EventRepository"
-    ) as MockRepo:
+    with patch("src.application.event_service.EventRepository") as MockRepo:
         repo = MockRepo.return_value
         repo.get_by_id_admin = AsyncMock(return_value=orm)
 
@@ -156,9 +151,7 @@ async def test_update_event_only_deadline_supplied_cross_checks_stored_date():
         registration_deadline=FUTURE,
     )
 
-    with patch(
-        "src.application.event_service.EventRepository"
-    ) as MockRepo:
+    with patch("src.application.event_service.EventRepository") as MockRepo:
         repo = MockRepo.return_value
         repo.get_by_id_admin = AsyncMock(return_value=orm)
 
@@ -183,9 +176,7 @@ async def test_list_public_events_excludes_deleted_and_past():
     """list_public_events should only include ACTIVE future events."""
     session = AsyncMock()
 
-    with patch(
-        "src.application.event_service.EventRepository"
-    ) as MockRepo:
+    with patch("src.application.event_service.EventRepository") as MockRepo:
         repo = MockRepo.return_value
         repo.count_public = AsyncMock(return_value=1)
         active_orm = _make_orm_event()

@@ -1,4 +1,5 @@
 """Pydantic schemas for the shared error envelope."""
+
 from __future__ import annotations
 
 from pydantic import BaseModel
